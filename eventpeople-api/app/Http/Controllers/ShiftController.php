@@ -50,4 +50,17 @@ class ShiftController extends Controller
     {
         //
     }
+
+    public function apply(Request $request, Shift $shift)
+    {
+        $userId = $request->user()->id;
+
+        if ($shift->users()->where('user_id', $userId)->exists()) {
+            return response()->json(['message' => 'You have already applied for this shift.'], 409);
+        }
+
+        $shift->users()->attach($userId, ['status' => 'pending']);
+
+        return response()->json(['message' => 'Application submitted successfully.'], 201);
+    }
 }
