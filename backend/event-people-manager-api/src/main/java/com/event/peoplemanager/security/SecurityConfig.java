@@ -38,6 +38,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/auth/**").permitAll()
                 .requestMatchers("/ws/**").permitAll() // WebSockets allow, we can secure STOMP messages later if needed
                 .requestMatchers("/v3/api-docs", "/v3/api-docs/**", "/swagger-resources", "/swagger-resources/**", "/configuration/ui", "/configuration/security", "/swagger-ui/**", "/webjars/**", "/swagger-ui.html").permitAll() // Swagger
+                .requestMatchers("/error").permitAll() // Zezwolenie na ścieżkę błędów Springa
                 .anyRequest().authenticated()
             )
             .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
