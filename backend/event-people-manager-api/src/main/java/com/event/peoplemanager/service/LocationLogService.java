@@ -9,6 +9,7 @@ import com.event.peoplemanager.repository.LocationLogRepository;
 import com.event.peoplemanager.repository.ShiftRepository;
 import com.event.peoplemanager.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +23,7 @@ public class LocationLogService {
     private final LocationLogRepository locationLogRepository;
     private final UserRepository userRepository;
     private final ShiftRepository shiftRepository;
+    private final SimpMessagingTemplate messagingTemplate;
 
     @Transactional
     public LocationLog saveLocation(LocationLogRequest request) {
@@ -42,6 +44,8 @@ public class LocationLogService {
                 .timestamp(ZonedDateTime.now())
                 .build();
 
-        return locationLogRepository.save(log);
+        log = locationLogRepository.save(log);
+        messagingTemplate.convertAndSend("/topic/locations", log);
+        return log;
     }
 }

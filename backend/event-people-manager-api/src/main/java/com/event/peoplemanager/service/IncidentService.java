@@ -10,6 +10,7 @@ import com.event.peoplemanager.repository.IncidentRepository;
 import com.event.peoplemanager.repository.UserRepository;
 import com.event.peoplemanager.repository.ZoneRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +24,7 @@ public class IncidentService {
     private final IncidentRepository incidentRepository;
     private final UserRepository userRepository;
     private final ZoneRepository zoneRepository;
+    private final SimpMessagingTemplate messagingTemplate;
 
     @Transactional
     public Incident reportIncident(IncidentRequest request) {
@@ -45,7 +47,9 @@ public class IncidentService {
                 .status(IncidentStatus.OPEN)
                 .build();
 
-        return incidentRepository.save(incident);
+        incident = incidentRepository.save(incident);
+        messagingTemplate.convertAndSend("/topic/incidents", incident);
+        return incident;
     }
 
     @Transactional
