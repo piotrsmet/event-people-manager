@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+@theme {
+  /* Kolory profesjonalne / Enterprise */
+  --color-dashboard-bg: #0f172a; /* slate-900 */
+  --color-panel-bg: #1e293b; /* slate-800 */
+  --color-panel-border: #334155; /* slate-700 */
+  --color-primary-blue: #2563eb; /* blue-600 */
+  --color-primary-hover: #1d4ed8; /* blue-700 */
+  --color-danger-red: #ef4444; /* red-500 */
+  --color-danger-hover: #dc2626; /* red-600 */
+  --color-text-main: #f8fafc; /* slate-50 */
+  --color-text-muted: #94a3b8; /* slate-400 */
+  --color-status-ok: #10b981; /* emerald-500 */
+  
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+}
+
+@layer base {
+  :root {
+    --background: var(--color-dashboard-bg);
+    --foreground: var(--color-text-main);
+  }
+  
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+  }
+}
+
+@layer components {
+  /* Klasy bazujące natywnie na zmiennych z sekcji theme */
+  .dashboard-panel {
+    @apply bg-panel-bg border border-panel-border rounded-lg shadow-sm;
+  }
+  
+  .btn-primary {
+    @apply px-4 py-2 bg-primary-blue text-white rounded-md border border-transparent
+           transition-colors duration-200 hover:bg-primary-hover
+           focus:outline-none focus:ring-2 focus:ring-primary-blue focus:ring-offset-2 focus:ring-offset-dashboard-bg
+           flex items-center justify-center font-medium text-sm;
+  }
+
+  .btn-danger {
+    @apply px-4 py-2 bg-transparent text-danger-red rounded-md border border-danger-red
+           transition-colors duration-200 hover:bg-danger-red hover:text-white
+           focus:outline-none focus:ring-2 focus:ring-danger-red focus:ring-offset-2 focus:ring-offset-dashboard-bg
+           flex items-center justify-center font-medium text-sm;
+  }
+}
