@@ -1,0 +1,55 @@
+package com.event.peoplemanager.service;
+
+import com.event.peoplemanager.domain.entity.User;
+import com.event.peoplemanager.domain.enums.UserRole;
+import com.event.peoplemanager.dto.AuthResponse;
+import com.event.peoplemanager.dto.LoginRequest;
+import com.event.peoplemanager.dto.RegisterRequest;
+import com.event.peoplemanager.repository.UserRepository;
+import com.event.peoplemanager.security.JwtService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+
+@Service
+@RequiredArgsConstructor
+public class AuthService {
+
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
+    private final AuthenticationManager authenticationManager;
+
+    public AuthResponse register(RegisterRequest request) {
+        if (userRepository.findByUsername(request.username()).isPresent()) {
+            throw new IllegalArgumentException("Username already exists");
+        }
+
+        UserRole role = request.role() != null ? request.role() : UserRole.VOLUNTEER;
+
+        var user = User.builder()
+                .username(request.username())
+                .passwordHash(passwordEncoder.encode(request.password()))
+                .role(role)
+                .build();
+
+        userRepository.save(user);
+        var jwtToken = jwtService.generateToken(user);
+        return new AuthResponse(jwtToken);
+    }
+
+    public AuthResponse login(LoginRequest request) {
+        authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(
+                        request.username(),
+                        request.password()
+                )
+        );
+        var user = userRepository.findByUsername(request.username())
+                .orElseThrow();
+        var jwtToken = jwtService.generateToken(user);
+        return new AuthResponse(jwtToken);
+    }
+}
