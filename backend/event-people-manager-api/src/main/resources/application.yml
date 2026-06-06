@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: event-people-manager
+  datasource:
+    url: jdbc:postgresql://localhost:5432/event_people_manager
+    username: postgres
+    password: postgres
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+server:
+  port: 8080
