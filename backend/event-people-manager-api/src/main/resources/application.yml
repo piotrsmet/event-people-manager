@@ -2,7 +2,7 @@ spring:
   application:
     name: event-people-manager
   datasource:
-    url: jdbc:postgresql://localhost:5432/event_people_manager
+    url: jdbc:postgresql://localhost:5433/event_people_db
     username: postgres
     password: postgres
   jpa:
