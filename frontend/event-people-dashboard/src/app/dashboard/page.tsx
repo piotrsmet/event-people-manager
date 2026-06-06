@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { logout } from "../actions/auth";
+import LiveMapWidget from "../components/LiveMapWidget";
 
 export default async function DashboardPage() {
   const cookieStore = await cookies();
@@ -26,15 +27,16 @@ export default async function DashboardPage() {
       </header>
 
       <div className="dashboard-panel p-6">
-        <h2 className="text-lg font-medium text-text-main mb-4">Witaj w Event Manager</h2>
-        <p className="text-text-muted text-sm">
-          To jest panel sterowania. W kolejnych krokach zintegrujemy tutaj mapę i statystyki.
-        </p>
-        <div className="mt-6 p-4 bg-dashboard-bg border border-panel-border rounded overflow-hidden">
-          <p className="text-xs text-text-muted break-all">
-            Twój token: <br/> {token.value}
-          </p>
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h2 className="text-lg font-medium text-text-main">Mapa Operacyjna</h2>
+            <p className="text-text-muted text-sm">
+              Pozycje GPS współpracowników aktualizowane na żywo przez WebSockets.
+            </p>
+          </div>
         </div>
+        
+        <LiveMapWidget token={token.value} />
       </div>
     </div>
   );
