@@ -11,6 +11,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -25,6 +26,7 @@ public class EventController {
     private final ResponseMapper responseMapper;
 
     @PostMapping
+    @PreAuthorize("hasRole('COORDINATOR')")
     public ResponseEntity<EventResponse> createEvent(
             @Valid @RequestBody CreateEventRequest request,
             @AuthenticationPrincipal User currentUser
@@ -42,12 +44,14 @@ public class EventController {
     }
 
     @GetMapping("/{eventId}")
+    @PreAuthorize("@eventSecurity.isEventMember(#eventId)")
     public ResponseEntity<EventResponse> getEvent(@PathVariable UUID eventId) {
         var event = eventService.getEvent(eventId);
         return ResponseEntity.ok(responseMapper.toEventResponse(event));
     }
 
     @PutMapping("/{eventId}")
+    @PreAuthorize("@eventSecurity.hasEventRole(#eventId, 'COORDINATOR')")
     public ResponseEntity<EventResponse> updateEvent(
             @PathVariable UUID eventId,
             @Valid @RequestBody UpdateEventRequest request
@@ -57,6 +61,7 @@ public class EventController {
     }
 
     @GetMapping("/{eventId}/members")
+    @PreAuthorize("@eventSecurity.isEventMember(#eventId)")
     public ResponseEntity<List<EventMemberResponse>> getEventMembers(@PathVariable UUID eventId) {
         var members = eventService.getEventMembers(eventId);
         return ResponseEntity.ok(members.stream().map(responseMapper::toEventMemberResponse).toList());

@@ -7,6 +7,7 @@ import com.event.peoplemanager.service.ZoneService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -21,6 +22,7 @@ public class ZoneController {
     private final ResponseMapper responseMapper;
 
     @PostMapping("/events/{eventId}/zones")
+    @PreAuthorize("@eventSecurity.hasEventRole(#eventId, 'COORDINATOR')")
     public ResponseEntity<ZoneResponse> createZone(
             @PathVariable UUID eventId,
             @Valid @RequestBody CreateZoneRequest request
@@ -30,12 +32,14 @@ public class ZoneController {
     }
 
     @GetMapping("/events/{eventId}/zones")
+    @PreAuthorize("@eventSecurity.isEventMember(#eventId)")
     public ResponseEntity<List<ZoneResponse>> getZones(@PathVariable UUID eventId) {
         var zones = zoneService.getZonesForEvent(eventId);
         return ResponseEntity.ok(zones.stream().map(responseMapper::toZoneResponse).toList());
     }
 
     @PutMapping("/zones/{zoneId}")
+    @PreAuthorize("@eventSecurity.canManageZone(#zoneId)")
     public ResponseEntity<ZoneResponse> updateZone(
             @PathVariable UUID zoneId,
             @Valid @RequestBody CreateZoneRequest request
@@ -45,6 +49,7 @@ public class ZoneController {
     }
 
     @DeleteMapping("/zones/{zoneId}")
+    @PreAuthorize("@eventSecurity.canManageZone(#zoneId)")
     public ResponseEntity<Void> deleteZone(@PathVariable UUID zoneId) {
         zoneService.deleteZone(zoneId);
         return ResponseEntity.noContent().build();

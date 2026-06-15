@@ -11,6 +11,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -25,6 +26,7 @@ public class InviteController {
     private final ResponseMapper responseMapper;
 
     @PostMapping("/events/{eventId}/invites")
+    @PreAuthorize("@eventSecurity.hasEventRole(#eventId, 'COORDINATOR')")
     public ResponseEntity<InviteTokenResponse> generateInvite(
             @PathVariable UUID eventId,
             @Valid @RequestBody CreateInviteRequest request,
@@ -35,12 +37,14 @@ public class InviteController {
     }
 
     @GetMapping("/events/{eventId}/invites")
+    @PreAuthorize("@eventSecurity.hasEventRole(#eventId, 'COORDINATOR')")
     public ResponseEntity<List<InviteTokenResponse>> getInvites(@PathVariable UUID eventId) {
         var tokens = inviteService.getInvitesForEvent(eventId);
         return ResponseEntity.ok(tokens.stream().map(responseMapper::toInviteTokenResponse).toList());
     }
 
     @DeleteMapping("/invites/{inviteId}")
+    @PreAuthorize("@eventSecurity.canRevokeInvite(#inviteId)")
     public ResponseEntity<Void> revokeInvite(@PathVariable UUID inviteId) {
         inviteService.revokeInvite(inviteId);
         return ResponseEntity.noContent().build();

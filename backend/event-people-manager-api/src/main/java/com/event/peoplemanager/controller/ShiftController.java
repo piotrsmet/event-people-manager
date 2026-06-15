@@ -9,6 +9,9 @@ import org.springframework.web.bind.annotation.*;
 
 import com.event.peoplemanager.domain.enums.ShiftStatus;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
 import java.util.List;
 import java.util.UUID;
 
@@ -21,6 +24,7 @@ public class ShiftController {
     private final ResponseMapper responseMapper;
 
     @PostMapping("/shifts/check-in")
+    @PreAuthorize("@eventSecurity.isEventMember(#eventId)")
     public ResponseEntity<ShiftResponse> checkIn(
             @RequestParam UUID userId,
             @RequestParam UUID eventId,
@@ -31,12 +35,14 @@ public class ShiftController {
     }
 
     @PostMapping("/shifts/{shiftId}/check-out")
+    @PreAuthorize("@eventSecurity.canManageShift(#shiftId)")
     public ResponseEntity<ShiftResponse> checkOut(@PathVariable UUID shiftId) {
         var shift = shiftService.checkOut(shiftId);
         return ResponseEntity.ok(responseMapper.toShiftResponse(shift));
     }
 
     @GetMapping("/events/{eventId}/shifts")
+    @PreAuthorize("@eventSecurity.isEventMember(#eventId)")
     public ResponseEntity<List<ShiftResponse>> getShifts(
             @PathVariable UUID eventId,
             @RequestParam(required = false) ShiftStatus status,
@@ -48,6 +54,7 @@ public class ShiftController {
     }
 
     @GetMapping("/events/{eventId}/shifts/active")
+    @PreAuthorize("@eventSecurity.isEventMember(#eventId)")
     public ResponseEntity<List<ShiftResponse>> getActiveShifts(@PathVariable UUID eventId) {
         var shifts = shiftService.getActiveShiftsForEvent(eventId);
         return ResponseEntity.ok(shifts.stream().map(responseMapper::toShiftResponse).toList());
