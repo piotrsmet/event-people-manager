@@ -5,9 +5,11 @@ import { AuthProvider, useAuth } from "./src/context/AuthContext";
 import LoginScreen from "./src/screens/LoginScreen";
 import JoinEventScreen from "./src/screens/JoinEventScreen";
 import ShiftScreen from "./src/screens/ShiftScreen";
+import RegisterScreen from "./src/screens/RegisterScreen";
 
 function MainAppContent() {
   const { token, selectedEvent, isLoading } = useAuth();
+  const [isRegistering, setIsRegistering] = React.useState(false);
 
   if (isLoading) {
     return (
@@ -19,7 +21,10 @@ function MainAppContent() {
 
   // Wybierz odpowiedni ekran na podstawie stanu sesji
   if (!token) {
-    return <LoginScreen />;
+    if (isRegistering) {
+      return <RegisterScreen onBackToLogin={() => setIsRegistering(false)} />;
+    }
+    return <LoginScreen onRegisterPress={() => setIsRegistering(true)} />;
   }
 
   if (!selectedEvent) {

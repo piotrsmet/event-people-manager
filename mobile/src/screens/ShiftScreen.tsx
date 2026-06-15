@@ -10,6 +10,7 @@ import {
   ScrollView,
   Alert,
   SafeAreaView,
+  Platform,
 } from "react-native";
 import * as Location from "expo-location";
 import { useAuth } from "../context/AuthContext";
@@ -21,12 +22,15 @@ export default function ShiftScreen() {
   const {
     user,
     selectedEvent,
+    myEvents,
     activeShiftId,
     activeZoneId,
     activeShiftStartTime,
     startShift,
     endShift,
     signOut,
+    selectEvent,
+    loadEvents,
   } = useAuth();
 
   const [zones, setZones] = useState<ZoneResponse[]>([]);
@@ -46,9 +50,16 @@ export default function ShiftScreen() {
   // Status GPS w tle/pierwszym planie
   const [gpsPermissionGranted, setGpsPermissionGranted] = useState<boolean | null>(null);
 
+  // Zmiana i dołączanie do wydarzeń
+  const [changeEventModalVisible, setChangeEventModalVisible] = useState(false);
+  const [joinEventModalVisible, setJoinEventModalVisible] = useState(false);
+  const [inviteCode, setInviteCode] = useState("");
+  const [joiningEvent, setJoiningEvent] = useState(false);
+  const [joinError, setJoinError] = useState<string | null>(null);
+
   // Referencje do cykli
-  const locationIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const locationIntervalRef = useRef<any>(null);
+  const timerIntervalRef = useRef<any>(null);
 
   // 1. Ładowanie stref przy wejściu na ekran
   useEffect(() => {
@@ -226,6 +237,35 @@ export default function ShiftScreen() {
     }
   };
 
+  const handleJoinNewEvent = async () => {
+    const cleanCode = inviteCode.trim().toUpperCase();
+    if (!cleanCode || cleanCode.length !== 6) {
+      setJoinError("Wpisz poprawny 6-znakowy kod.");
+      return;
+    }
+    setJoinError(null);
+    setJoiningEvent(true);
+    try {
+      const prevIds = myEvents.map((e) => e.id);
+      await api.joinEvent(cleanCode);
+      await loadEvents();
+      
+      const updatedEvents = await api.getMyEvents();
+      const newEvent = updatedEvents.find((e) => !prevIds.includes(e.id));
+      if (newEvent) {
+        await selectEvent(newEvent);
+      }
+      
+      Alert.alert("Sukces", "Dołączono do nowego wydarzenia!");
+      setJoinEventModalVisible(false);
+      setInviteCode("");
+    } catch (err: any) {
+      setJoinError(err.message || "Błąd dołączania do wydarzenia.");
+    } finally {
+      setJoiningEvent(false);
+    }
+  };
+
   const getActiveZoneName = () => {
     if (!activeZoneId) return "Cały teren / Brak strefy";
     const zone = zones.find((z) => z.id === activeZoneId);
@@ -248,11 +288,44 @@ export default function ShiftScreen() {
 
         {/* Event Card */}
         <View style={styles.eventCard}>
-          <Text style={styles.eventLabel}>Aktywne Wydarzenie</Text>
-          <Text style={styles.eventName}>{selectedEvent?.name}</Text>
+          <View style={styles.eventCardHeader}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.eventLabel}>Aktywne Wydarzenie</Text>
+              <Text style={styles.eventName}>{selectedEvent?.name}</Text>
+            </View>
+            {activeShiftId ? (
+              <View style={styles.lockedBadge}>
+                <Text style={styles.lockedBadgeText}>🔒 W TRAKCIE PRACY</Text>
+              </View>
+            ) : null}
+          </View>
           <Text style={styles.eventDesc} numberOfLines={2}>
             {selectedEvent?.description || "Brak opisu wydarzenia."}
           </Text>
+          
+          <View style={styles.eventActionsRow}>
+            <TouchableOpacity
+              style={[
+                styles.eventCardBtn,
+                activeShiftId !== null && styles.eventCardBtnDisabled
+              ]}
+              disabled={activeShiftId !== null}
+              onPress={() => setChangeEventModalVisible(true)}
+            >
+              <Text style={styles.eventCardBtnText}>🔄 Zmień ({myEvents.length})</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.eventCardBtn,
+                activeShiftId !== null && styles.eventCardBtnDisabled
+              ]}
+              disabled={activeShiftId !== null}
+              onPress={() => setJoinEventModalVisible(true)}
+            >
+              <Text style={styles.eventCardBtnText}>➕ Dołącz kodem</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* GPS Permission Warning */}
@@ -446,6 +519,120 @@ export default function ShiftScreen() {
                   <ActivityIndicator color="#FFFFFF" size="small" />
                 ) : (
                   <Text style={styles.modalBtnSendText}>WYŚLIJ SOS</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* CHANGE EVENT MODAL */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={changeEventModalVisible}
+        onRequestClose={() => setChangeEventModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitleBlue}>🔄 Wybierz wydarzenie</Text>
+            <Text style={styles.modalSubtitle}>
+              Przełącz się na inne wydarzenie, do którego jesteś przypisany.
+            </Text>
+
+            <ScrollView style={{ maxHeight: 200, marginBottom: 20 }}>
+              {myEvents.map((evt) => (
+                <TouchableOpacity
+                  key={evt.id}
+                  style={[
+                    styles.eventSelectOption,
+                    selectedEvent?.id === evt.id && styles.eventSelectOptionSelected,
+                  ]}
+                  onPress={async () => {
+                    await selectEvent(evt);
+                    setChangeEventModalVisible(false);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.eventSelectOptionText,
+                      selectedEvent?.id === evt.id && styles.eventSelectOptionTextSelected,
+                    ]}
+                  >
+                    {evt.name}
+                  </Text>
+                  {selectedEvent?.id === evt.id && (
+                    <Text style={styles.activeCheckmark}>✓</Text>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            <TouchableOpacity
+              style={[styles.modalBtn, styles.modalBtnCancel, { width: "100%" }]}
+              onPress={() => setChangeEventModalVisible(false)}
+            >
+              <Text style={styles.modalBtnCancelText}>Zamknij</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* JOIN EVENT MODAL */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={joinEventModalVisible}
+        onRequestClose={() => {
+          if (!joiningEvent) setJoinEventModalVisible(false);
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitleGreen}>➕ Dołącz do wydarzenia</Text>
+            <Text style={styles.modalSubtitle}>
+              Wpisz 6-znakowy kod zaproszenia, aby dołączyć do nowego zespołu.
+            </Text>
+
+            {joinError && (
+              <View style={[styles.errorContainer, { marginBottom: 15 }]}>
+                <Text style={styles.errorText}>{joinError}</Text>
+              </View>
+            )}
+
+            <TextInput
+              style={[styles.modalInput, styles.codeModalInput]}
+              placeholder="np. ABC123"
+              placeholderTextColor="#64748B"
+              value={inviteCode}
+              onChangeText={(text) => setInviteCode(text.toUpperCase())}
+              maxLength={6}
+              autoCapitalize="characters"
+              autoCorrect={false}
+            />
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalBtnCancel]}
+                onPress={() => {
+                  setJoinEventModalVisible(false);
+                  setInviteCode("");
+                  setJoinError(null);
+                }}
+                disabled={joiningEvent}
+              >
+                <Text style={styles.modalBtnCancelText}>Anuluj</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalBtnJoin]}
+                onPress={handleJoinNewEvent}
+                disabled={joiningEvent}
+              >
+                {joiningEvent ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Text style={styles.modalBtnJoinText}>Dołącz</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -793,5 +980,117 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 15,
     fontWeight: "800",
+  },
+  eventCardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  lockedBadge: {
+    backgroundColor: "rgba(239, 68, 68, 0.15)",
+    borderWidth: 1,
+    borderColor: "#EF4444",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  lockedBadgeText: {
+    color: "#FCA5A5",
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  eventActionsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: "#334155",
+    paddingTop: 12,
+  },
+  eventCardBtn: {
+    backgroundColor: "#2E3A52",
+    borderRadius: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    width: "48%",
+    alignItems: "center",
+  },
+  eventCardBtnDisabled: {
+    opacity: 0.5,
+  },
+  eventCardBtnText: {
+    color: "#F8FAFC",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  modalTitleBlue: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#3B82F6",
+    textAlign: "center",
+  },
+  modalTitleGreen: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#10B981",
+    textAlign: "center",
+  },
+  eventSelectOption: {
+    backgroundColor: "#0F172A",
+    borderRadius: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "#334155",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  eventSelectOptionSelected: {
+    borderColor: "#3B82F6",
+    backgroundColor: "rgba(59, 130, 246, 0.1)",
+  },
+  eventSelectOptionText: {
+    color: "#94A3B8",
+    fontSize: 14,
+    fontWeight: "600",
+    flex: 1,
+  },
+  eventSelectOptionTextSelected: {
+    color: "#60A5FA",
+  },
+  activeCheckmark: {
+    color: "#60A5FA",
+    fontWeight: "900",
+    fontSize: 16,
+  },
+  codeModalInput: {
+    fontSize: 24,
+    fontWeight: "700",
+    textAlign: "center",
+    letterSpacing: 4,
+    height: 60,
+  },
+  modalBtnJoin: {
+    backgroundColor: "#10B981",
+  },
+  modalBtnJoinText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  errorContainer: {
+    backgroundColor: "rgba(239, 68, 68, 0.15)",
+    borderWidth: 1,
+    borderColor: "#EF4444",
+    padding: 10,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  errorText: {
+    color: "#FCA5A5",
+    fontSize: 13,
+    fontWeight: "500",
   },
 });

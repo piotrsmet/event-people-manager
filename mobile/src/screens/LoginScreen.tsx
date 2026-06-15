@@ -13,7 +13,11 @@ import {
 } from "react-native";
 import { useAuth } from "../context/AuthContext";
 
-export default function LoginScreen() {
+interface LoginScreenProps {
+  onRegisterPress?: () => void;
+}
+
+export default function LoginScreen({ onRegisterPress }: LoginScreenProps) {
   const { signIn } = useAuth();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -97,6 +101,11 @@ export default function LoginScreen() {
 
           {/* Footer */}
           <View style={styles.footer}>
+            {onRegisterPress && (
+              <TouchableOpacity style={styles.registerLink} onPress={onRegisterPress}>
+                <Text style={styles.registerLinkText}>Nie masz konta? Zarejestruj się</Text>
+              </TouchableOpacity>
+            )}
             <Text style={styles.footerText}>
               Wersja mobilna v1.0.0
             </Text>
@@ -198,5 +207,15 @@ const styles = StyleSheet.create({
   footerText: {
     color: "#475569", // Slate 600
     fontSize: 12,
+  },
+  registerLink: {
+    paddingVertical: 10,
+    marginBottom: 8,
+  },
+  registerLinkText: {
+    color: "#60A5FA",
+    fontSize: 14,
+    fontWeight: "600",
+    textDecorationLine: "underline",
   },
 });
