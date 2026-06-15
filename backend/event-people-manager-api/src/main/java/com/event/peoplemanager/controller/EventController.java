@@ -7,6 +7,7 @@ import com.event.peoplemanager.dto.response.EventMemberResponse;
 import com.event.peoplemanager.dto.response.EventResponse;
 import com.event.peoplemanager.dto.response.ResponseMapper;
 import com.event.peoplemanager.service.EventService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -25,7 +26,7 @@ public class EventController {
 
     @PostMapping
     public ResponseEntity<EventResponse> createEvent(
-            @RequestBody CreateEventRequest request,
+            @Valid @RequestBody CreateEventRequest request,
             @AuthenticationPrincipal User currentUser
     ) {
         var event = eventService.createEvent(request, currentUser.getId());
@@ -49,7 +50,7 @@ public class EventController {
     @PutMapping("/{eventId}")
     public ResponseEntity<EventResponse> updateEvent(
             @PathVariable UUID eventId,
-            @RequestBody UpdateEventRequest request
+            @Valid @RequestBody UpdateEventRequest request
     ) {
         var event = eventService.updateEvent(eventId, request);
         return ResponseEntity.ok(responseMapper.toEventResponse(event));

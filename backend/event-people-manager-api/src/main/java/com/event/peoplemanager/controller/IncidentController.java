@@ -4,6 +4,7 @@ import com.event.peoplemanager.dto.IncidentRequest;
 import com.event.peoplemanager.dto.response.IncidentResponse;
 import com.event.peoplemanager.dto.response.ResponseMapper;
 import com.event.peoplemanager.service.IncidentService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -20,7 +21,7 @@ public class IncidentController {
     private final ResponseMapper responseMapper;
 
     @PostMapping
-    public ResponseEntity<IncidentResponse> reportIncident(@RequestBody IncidentRequest request) {
+    public ResponseEntity<IncidentResponse> reportIncident(@Valid @RequestBody IncidentRequest request) {
         var incident = incidentService.reportIncident(request);
         return ResponseEntity.ok(responseMapper.toIncidentResponse(incident));
     }

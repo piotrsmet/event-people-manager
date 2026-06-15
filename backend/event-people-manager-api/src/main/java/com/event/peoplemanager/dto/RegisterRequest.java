@@ -1,9 +1,11 @@
 package com.event.peoplemanager.dto;
 
-import com.event.peoplemanager.domain.enums.UserRole;
+import jakarta.validation.constraints.NotBlank;
 
 public record RegisterRequest(
+        @NotBlank(message = "Username is required")
         String username,
+        @NotBlank(message = "Password is required")
         String password,
-        UserRole role
+        com.event.peoplemanager.domain.enums.UserRole role
 ) {}

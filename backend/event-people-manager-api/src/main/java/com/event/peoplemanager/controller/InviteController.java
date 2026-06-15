@@ -7,6 +7,7 @@ import com.event.peoplemanager.dto.response.EventMemberResponse;
 import com.event.peoplemanager.dto.response.InviteTokenResponse;
 import com.event.peoplemanager.dto.response.ResponseMapper;
 import com.event.peoplemanager.service.InviteService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -26,7 +27,7 @@ public class InviteController {
     @PostMapping("/events/{eventId}/invites")
     public ResponseEntity<InviteTokenResponse> generateInvite(
             @PathVariable UUID eventId,
-            @RequestBody CreateInviteRequest request,
+            @Valid @RequestBody CreateInviteRequest request,
             @AuthenticationPrincipal User currentUser
     ) {
         var token = inviteService.generateInvite(eventId, request, currentUser.getId());
@@ -47,7 +48,7 @@ public class InviteController {
 
     @PostMapping("/invites/join")
     public ResponseEntity<EventMemberResponse> joinEvent(
-            @RequestBody JoinEventRequest request,
+            @Valid @RequestBody JoinEventRequest request,
             @AuthenticationPrincipal User currentUser
     ) {
         var member = inviteService.joinEvent(request.code(), currentUser.getId());

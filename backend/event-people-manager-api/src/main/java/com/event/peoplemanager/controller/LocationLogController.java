@@ -4,6 +4,7 @@ import com.event.peoplemanager.dto.LocationLogRequest;
 import com.event.peoplemanager.dto.response.LocationLogResponse;
 import com.event.peoplemanager.dto.response.ResponseMapper;
 import com.event.peoplemanager.service.LocationLogService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -20,7 +21,7 @@ public class LocationLogController {
     private final ResponseMapper responseMapper;
 
     @PostMapping
-    public ResponseEntity<LocationLogResponse> saveLocation(@RequestBody LocationLogRequest request) {
+    public ResponseEntity<LocationLogResponse> saveLocation(@Valid @RequestBody LocationLogRequest request) {
         var log = locationLogService.saveLocation(request);
         return ResponseEntity.ok(responseMapper.toLocationLogResponse(log));
     }
