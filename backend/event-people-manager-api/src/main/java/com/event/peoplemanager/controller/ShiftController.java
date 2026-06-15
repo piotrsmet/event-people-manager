@@ -7,25 +7,49 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import com.event.peoplemanager.domain.enums.ShiftStatus;
+
+import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/v1/shifts")
+@RequestMapping("/api/v1")
 @RequiredArgsConstructor
 public class ShiftController {
 
     private final ShiftService shiftService;
     private final ResponseMapper responseMapper;
 
-    @PostMapping("/check-in")
-    public ResponseEntity<ShiftResponse> checkIn(@RequestParam UUID userId) {
-        var shift = shiftService.checkIn(userId);
+    @PostMapping("/shifts/check-in")
+    public ResponseEntity<ShiftResponse> checkIn(
+            @RequestParam UUID userId,
+            @RequestParam UUID eventId,
+            @RequestParam(required = false) UUID zoneId
+    ) {
+        var shift = shiftService.checkIn(userId, eventId, zoneId);
         return ResponseEntity.ok(responseMapper.toShiftResponse(shift));
     }
 
-    @PostMapping("/{shiftId}/check-out")
+    @PostMapping("/shifts/{shiftId}/check-out")
     public ResponseEntity<ShiftResponse> checkOut(@PathVariable UUID shiftId) {
         var shift = shiftService.checkOut(shiftId);
         return ResponseEntity.ok(responseMapper.toShiftResponse(shift));
+    }
+
+    @GetMapping("/events/{eventId}/shifts")
+    public ResponseEntity<List<ShiftResponse>> getShifts(
+            @PathVariable UUID eventId,
+            @RequestParam(required = false) ShiftStatus status,
+            @RequestParam(required = false) UUID userId,
+            @RequestParam(required = false) UUID zoneId
+    ) {
+        var shifts = shiftService.getShiftsForEvent(eventId, status, userId, zoneId);
+        return ResponseEntity.ok(shifts.stream().map(responseMapper::toShiftResponse).toList());
+    }
+
+    @GetMapping("/events/{eventId}/shifts/active")
+    public ResponseEntity<List<ShiftResponse>> getActiveShifts(@PathVariable UUID eventId) {
+        var shifts = shiftService.getActiveShiftsForEvent(eventId);
+        return ResponseEntity.ok(shifts.stream().map(responseMapper::toShiftResponse).toList());
     }
 }

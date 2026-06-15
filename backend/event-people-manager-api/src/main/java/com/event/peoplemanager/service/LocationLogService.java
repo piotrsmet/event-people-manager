@@ -13,7 +13,13 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.event.peoplemanager.domain.entity.EventMember;
+import com.event.peoplemanager.dto.response.ResponseMapper;
+import com.event.peoplemanager.repository.EventMemberRepository;
+
 import java.time.ZonedDateTime;
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -23,6 +29,8 @@ public class LocationLogService {
     private final LocationLogRepository locationLogRepository;
     private final UserRepository userRepository;
     private final ShiftRepository shiftRepository;
+    private final EventMemberRepository eventMemberRepository;
+    private final ResponseMapper responseMapper;
     private final SimpMessagingTemplate messagingTemplate;
 
     @Transactional
@@ -45,7 +53,16 @@ public class LocationLogService {
                 .build();
 
         log = locationLogRepository.save(log);
-        messagingTemplate.convertAndSend("/topic/locations", log);
+        messagingTemplate.convertAndSend("/topic/locations", responseMapper.toLocationLogResponse(log));
         return log;
+    }
+
+    public List<LocationLog> getLatestLocationsForEvent(UUID eventId) {
+        List<EventMember> members = eventMemberRepository.findByEventId(eventId);
+        return members.stream()
+                .map(m -> locationLogRepository.findFirstByUserIdOrderByTimestampDesc(m.getUser().getId()))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .toList();
     }
 }

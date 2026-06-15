@@ -17,6 +17,12 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.UUID;
 
+import com.event.peoplemanager.domain.entity.Event;
+import com.event.peoplemanager.dto.response.ResponseMapper;
+import com.event.peoplemanager.repository.EventRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 @Service
 @RequiredArgsConstructor
 public class IncidentService {
@@ -24,12 +30,17 @@ public class IncidentService {
     private final IncidentRepository incidentRepository;
     private final UserRepository userRepository;
     private final ZoneRepository zoneRepository;
+    private final EventRepository eventRepository;
+    private final ResponseMapper responseMapper;
     private final SimpMessagingTemplate messagingTemplate;
 
     @Transactional
     public Incident reportIncident(IncidentRequest request) {
         User reporter = userRepository.findById(request.reporterId())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + request.reporterId()));
+
+        Event event = eventRepository.findById(request.eventId())
+                .orElseThrow(() -> new ResourceNotFoundException("Event not found: " + request.eventId()));
 
         Zone zone = null;
         if (request.zoneId() != null) {
@@ -39,6 +50,7 @@ public class IncidentService {
 
         Incident incident = Incident.builder()
                 .reporter(reporter)
+                .event(event)
                 .zone(zone)
                 .type(request.type())
                 .description(request.description())
@@ -48,7 +60,7 @@ public class IncidentService {
                 .build();
 
         incident = incidentRepository.save(incident);
-        messagingTemplate.convertAndSend("/topic/incidents", incident);
+        messagingTemplate.convertAndSend("/topic/incidents", responseMapper.toIncidentResponse(incident));
         return incident;
     }
 
@@ -63,5 +75,12 @@ public class IncidentService {
 
     public List<Incident> getActiveIncidents() {
         return incidentRepository.findByStatus(IncidentStatus.OPEN);
+    }
+
+    public Page<Incident> getIncidentsForEvent(UUID eventId, Pageable pageable) {
+        if (!eventRepository.existsById(eventId)) {
+            throw new ResourceNotFoundException("Event not found: " + eventId);
+        }
+        return incidentRepository.findByEventId(eventId, pageable);
     }
 }

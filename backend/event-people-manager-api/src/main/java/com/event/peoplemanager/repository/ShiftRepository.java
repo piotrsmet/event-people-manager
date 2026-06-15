@@ -12,4 +12,6 @@ import java.util.UUID;
 public interface ShiftRepository extends JpaRepository<Shift, UUID> {
     List<Shift> findByUserIdAndStatus(UUID userId, ShiftStatus status);
     List<Shift> findByZoneId(UUID zoneId);
+    List<Shift> findByEventId(UUID eventId);
+    List<Shift> findByEventIdAndStatus(UUID eventId, ShiftStatus status);
 }

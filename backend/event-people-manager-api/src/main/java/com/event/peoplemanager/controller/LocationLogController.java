@@ -7,22 +7,28 @@ import com.event.peoplemanager.service.LocationLogService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/v1/locations")
+@RequestMapping("/api/v1")
 @RequiredArgsConstructor
 public class LocationLogController {
 
     private final LocationLogService locationLogService;
     private final ResponseMapper responseMapper;
 
-    @PostMapping
+    @PostMapping("/locations")
     public ResponseEntity<LocationLogResponse> saveLocation(@Valid @RequestBody LocationLogRequest request) {
         var log = locationLogService.saveLocation(request);
         return ResponseEntity.ok(responseMapper.toLocationLogResponse(log));
+    }
+
+    @GetMapping("/events/{eventId}/locations/latest")
+    public ResponseEntity<List<LocationLogResponse>> getLatestLocations(@PathVariable UUID eventId) {
+        var logs = locationLogService.getLatestLocationsForEvent(eventId);
+        return ResponseEntity.ok(logs.stream().map(responseMapper::toLocationLogResponse).toList());
     }
 }

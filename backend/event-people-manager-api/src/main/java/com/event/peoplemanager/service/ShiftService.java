@@ -10,9 +10,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.ZonedDateTime;
-import java.util.List;
-import java.util.UUID;
+import com.event.peoplemanager.domain.entity.Event;
+import com.event.peoplemanager.domain.entity.Zone;
+import com.event.peoplemanager.repository.EventRepository;
+import com.event.peoplemanager.repository.ZoneRepository;
 
 @Service
 @RequiredArgsConstructor
@@ -20,11 +21,22 @@ public class ShiftService {
 
     private final ShiftRepository shiftRepository;
     private final UserRepository userRepository;
+    private final EventRepository eventRepository;
+    private final ZoneRepository zoneRepository;
 
     @Transactional
-    public Shift checkIn(UUID userId) {
+    public Shift checkIn(UUID userId, UUID eventId, UUID zoneId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
+
+        Event event = eventRepository.findById(eventId)
+                .orElseThrow(() -> new ResourceNotFoundException("Event not found: " + eventId));
+
+        Zone zone = null;
+        if (zoneId != null) {
+            zone = zoneRepository.findById(zoneId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Zone not found: " + zoneId));
+        }
 
         // Zakończ wszystkie aktywne zmiany tego użytkownika (na wszelki wypadek)
         List<Shift> activeShifts = shiftRepository.findByUserIdAndStatus(userId, ShiftStatus.IN_PROGRESS);
@@ -36,6 +48,8 @@ public class ShiftService {
 
         Shift newShift = Shift.builder()
                 .user(user)
+                .event(event)
+                .zone(zone)
                 .status(ShiftStatus.IN_PROGRESS)
                 .startTime(ZonedDateTime.now())
                 .build();
@@ -52,5 +66,24 @@ public class ShiftService {
         shift.setEndTime(ZonedDateTime.now());
         
         return shiftRepository.save(shift);
+    }
+
+    public List<Shift> getShiftsForEvent(UUID eventId, ShiftStatus status, UUID userId, UUID zoneId) {
+        if (!eventRepository.existsById(eventId)) {
+            throw new ResourceNotFoundException("Event not found: " + eventId);
+        }
+        List<Shift> shifts = shiftRepository.findByEventId(eventId);
+        return shifts.stream()
+                .filter(s -> status == null || s.getStatus() == status)
+                .filter(s -> userId == null || s.getUser().getId().equals(userId))
+                .filter(s -> zoneId == null || (s.getZone() != null && s.getZone().getId().equals(zoneId)))
+                .toList();
+    }
+
+    public List<Shift> getActiveShiftsForEvent(UUID eventId) {
+        if (!eventRepository.existsById(eventId)) {
+            throw new ResourceNotFoundException("Event not found: " + eventId);
+        }
+        return shiftRepository.findByEventIdAndStatus(eventId, ShiftStatus.IN_PROGRESS);
     }
 }

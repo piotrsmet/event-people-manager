@@ -103,4 +103,15 @@ public class ResponseMapper {
                 token.getCreatedAt()
         );
     }
+
+    public ZoneResponse toZoneResponse(Zone zone) {
+        return new ZoneResponse(
+                zone.getId(),
+                zone.getName(),
+                zone.getDescription(),
+                zone.getCapacity(),
+                zone.getEvent() != null ? zone.getEvent().getId() : null,
+                zone.getCreatedAt()
+        );
+    }
 }

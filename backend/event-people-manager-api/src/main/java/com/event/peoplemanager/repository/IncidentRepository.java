@@ -2,6 +2,8 @@ package com.event.peoplemanager.repository;
 
 import com.event.peoplemanager.domain.entity.Incident;
 import com.event.peoplemanager.domain.enums.IncidentStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -12,4 +14,5 @@ import java.util.UUID;
 public interface IncidentRepository extends JpaRepository<Incident, UUID> {
     List<Incident> findByStatus(IncidentStatus status);
     List<Incident> findByZoneId(UUID zoneId);
+    Page<Incident> findByEventId(UUID eventId, Pageable pageable);
 }

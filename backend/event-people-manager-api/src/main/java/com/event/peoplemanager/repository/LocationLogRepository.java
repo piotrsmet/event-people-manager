@@ -11,4 +11,5 @@ import java.util.UUID;
 public interface LocationLogRepository extends JpaRepository<LocationLog, UUID> {
     List<LocationLog> findByUserId(UUID userId);
     List<LocationLog> findByShiftId(UUID shiftId);
+    java.util.Optional<LocationLog> findFirstByUserIdOrderByTimestampDesc(UUID userId);
 }

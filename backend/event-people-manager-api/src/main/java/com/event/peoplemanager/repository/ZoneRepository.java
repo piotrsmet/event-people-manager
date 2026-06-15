@@ -8,4 +8,5 @@ import java.util.UUID;
 
 @Repository
 public interface ZoneRepository extends JpaRepository<Zone, UUID> {
+    List<Zone> findByEventId(UUID eventId);
 }
