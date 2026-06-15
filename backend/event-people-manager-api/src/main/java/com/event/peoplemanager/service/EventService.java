@@ -101,4 +101,21 @@ public class EventService {
     public long getMemberCount(UUID eventId) {
         return eventMemberRepository.countByEventId(eventId);
     }
+
+    @Transactional
+    public EventMember updateMemberRole(UUID eventId, UUID userId, UserRole newRole) {
+        EventMember member = eventMemberRepository.findByEventIdAndUserId(eventId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Member not found in event: " + eventId + " for user: " + userId));
+
+        member.setRole(newRole);
+        return eventMemberRepository.save(member);
+    }
+
+    @Transactional
+    public void removeMember(UUID eventId, UUID userId) {
+        EventMember member = eventMemberRepository.findByEventIdAndUserId(eventId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Member not found in event: " + eventId + " for user: " + userId));
+
+        eventMemberRepository.delete(member);
+    }
 }

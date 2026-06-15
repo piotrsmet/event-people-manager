@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.access.prepost.PreAuthorize;
+import com.event.peoplemanager.domain.enums.UserRole;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -65,5 +66,26 @@ public class EventController {
     public ResponseEntity<List<EventMemberResponse>> getEventMembers(@PathVariable UUID eventId) {
         var members = eventService.getEventMembers(eventId);
         return ResponseEntity.ok(members.stream().map(responseMapper::toEventMemberResponse).toList());
+    }
+
+    @PutMapping("/{eventId}/members/{userId}/role")
+    @PreAuthorize("@eventSecurity.hasEventRole(#eventId, 'COORDINATOR')")
+    public ResponseEntity<EventMemberResponse> updateMemberRole(
+            @PathVariable UUID eventId,
+            @PathVariable UUID userId,
+            @RequestParam UserRole role
+    ) {
+        var updated = eventService.updateMemberRole(eventId, userId, role);
+        return ResponseEntity.ok(responseMapper.toEventMemberResponse(updated));
+    }
+
+    @DeleteMapping("/{eventId}/members/{userId}")
+    @PreAuthorize("@eventSecurity.hasEventRole(#eventId, 'COORDINATOR')")
+    public ResponseEntity<Void> removeMember(
+            @PathVariable UUID eventId,
+            @PathVariable UUID userId
+    ) {
+        eventService.removeMember(eventId, userId);
+        return ResponseEntity.noContent().build();
     }
 }
