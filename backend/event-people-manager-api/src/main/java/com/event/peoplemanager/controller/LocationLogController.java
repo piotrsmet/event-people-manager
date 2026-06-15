@@ -1,7 +1,8 @@
 package com.event.peoplemanager.controller;
 
-import com.event.peoplemanager.domain.entity.LocationLog;
 import com.event.peoplemanager.dto.LocationLogRequest;
+import com.event.peoplemanager.dto.response.LocationLogResponse;
+import com.event.peoplemanager.dto.response.ResponseMapper;
 import com.event.peoplemanager.service.LocationLogService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -16,9 +17,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class LocationLogController {
 
     private final LocationLogService locationLogService;
+    private final ResponseMapper responseMapper;
 
     @PostMapping
-    public ResponseEntity<LocationLog> saveLocation(@RequestBody LocationLogRequest request) {
-        return ResponseEntity.ok(locationLogService.saveLocation(request));
+    public ResponseEntity<LocationLogResponse> saveLocation(@RequestBody LocationLogRequest request) {
+        var log = locationLogService.saveLocation(request);
+        return ResponseEntity.ok(responseMapper.toLocationLogResponse(log));
     }
 }

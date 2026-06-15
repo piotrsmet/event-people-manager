@@ -1,10 +1,11 @@
 package com.event.peoplemanager.controller;
 
-import com.event.peoplemanager.domain.entity.Event;
-import com.event.peoplemanager.domain.entity.EventMember;
 import com.event.peoplemanager.domain.entity.User;
 import com.event.peoplemanager.dto.CreateEventRequest;
 import com.event.peoplemanager.dto.UpdateEventRequest;
+import com.event.peoplemanager.dto.response.EventMemberResponse;
+import com.event.peoplemanager.dto.response.EventResponse;
+import com.event.peoplemanager.dto.response.ResponseMapper;
 import com.event.peoplemanager.service.EventService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -20,37 +21,43 @@ import java.util.UUID;
 public class EventController {
 
     private final EventService eventService;
+    private final ResponseMapper responseMapper;
 
     @PostMapping
-    public ResponseEntity<Event> createEvent(
+    public ResponseEntity<EventResponse> createEvent(
             @RequestBody CreateEventRequest request,
             @AuthenticationPrincipal User currentUser
     ) {
-        return ResponseEntity.ok(eventService.createEvent(request, currentUser.getId()));
+        var event = eventService.createEvent(request, currentUser.getId());
+        return ResponseEntity.ok(responseMapper.toEventResponse(event));
     }
 
     @GetMapping
-    public ResponseEntity<List<Event>> getMyEvents(
+    public ResponseEntity<List<EventResponse>> getMyEvents(
             @AuthenticationPrincipal User currentUser
     ) {
-        return ResponseEntity.ok(eventService.getEventsForUser(currentUser.getId()));
+        var events = eventService.getEventsForUser(currentUser.getId());
+        return ResponseEntity.ok(events.stream().map(responseMapper::toEventResponse).toList());
     }
 
     @GetMapping("/{eventId}")
-    public ResponseEntity<Event> getEvent(@PathVariable UUID eventId) {
-        return ResponseEntity.ok(eventService.getEvent(eventId));
+    public ResponseEntity<EventResponse> getEvent(@PathVariable UUID eventId) {
+        var event = eventService.getEvent(eventId);
+        return ResponseEntity.ok(responseMapper.toEventResponse(event));
     }
 
     @PutMapping("/{eventId}")
-    public ResponseEntity<Event> updateEvent(
+    public ResponseEntity<EventResponse> updateEvent(
             @PathVariable UUID eventId,
             @RequestBody UpdateEventRequest request
     ) {
-        return ResponseEntity.ok(eventService.updateEvent(eventId, request));
+        var event = eventService.updateEvent(eventId, request);
+        return ResponseEntity.ok(responseMapper.toEventResponse(event));
     }
 
     @GetMapping("/{eventId}/members")
-    public ResponseEntity<List<EventMember>> getEventMembers(@PathVariable UUID eventId) {
-        return ResponseEntity.ok(eventService.getEventMembers(eventId));
+    public ResponseEntity<List<EventMemberResponse>> getEventMembers(@PathVariable UUID eventId) {
+        var members = eventService.getEventMembers(eventId);
+        return ResponseEntity.ok(members.stream().map(responseMapper::toEventMemberResponse).toList());
     }
 }
