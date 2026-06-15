@@ -31,6 +31,9 @@ public class ResponseMapper {
                 event.getOwner().getUsername(),
                 event.getStatus(),
                 memberCount,
+                event.isOutdoor(),
+                event.getBoundaryGeoJson(),
+                event.getBuildingPlanBase64(),
                 event.getCreatedAt()
         );
     }
@@ -112,6 +115,19 @@ public class ResponseMapper {
                 zone.getCapacity(),
                 zone.getEvent() != null ? zone.getEvent().getId() : null,
                 zone.getCreatedAt()
+        );
+    }
+
+    public StrategicPointResponse toStrategicPointResponse(StrategicPoint point) {
+        return new StrategicPointResponse(
+                point.getId(),
+                point.getEvent().getId(),
+                point.getName(),
+                point.getType(),
+                point.getLatitude(),
+                point.getLongitude(),
+                point.getXRatio(),
+                point.getYRatio()
         );
     }
 }

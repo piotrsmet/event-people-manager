@@ -49,6 +49,11 @@ export default function DashboardClient({ initialEvents, token }: DashboardClien
     }
   }
 
+  const activeEvent = events.find((e) => e.id === selectedEventId) || null;
+  const handleEventUpdated = (updatedEvent: EventResponse) => {
+    setEvents((prev) => prev.map((e) => (e.id === updatedEvent.id ? updatedEvent : e)));
+  };
+
   return (
     <div className="min-h-screen p-8">
       {/* Header Section */}
@@ -82,11 +87,12 @@ export default function DashboardClient({ initialEvents, token }: DashboardClien
         <div className="space-y-6">
           <StatsCards stats={stats} />
           
-          {/* Dashboard Main Tabs Panel */}
           <DashboardTabs
             eventId={selectedEventId}
             token={token}
             onRefreshStats={handleRefreshStats}
+            activeEvent={activeEvent}
+            onUpdateEvent={handleEventUpdated}
           />
         </div>
       ) : (

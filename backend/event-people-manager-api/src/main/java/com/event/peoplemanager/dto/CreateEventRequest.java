@@ -9,5 +9,8 @@ public record CreateEventRequest(
         String name,
         String description,
         ZonedDateTime startDate,
-        ZonedDateTime endDate
+        ZonedDateTime endDate,
+        Boolean outdoor,
+        String boundaryGeoJson,
+        String buildingPlanBase64
 ) {}

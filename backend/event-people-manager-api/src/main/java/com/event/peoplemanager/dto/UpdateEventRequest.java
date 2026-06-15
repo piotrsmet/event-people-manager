@@ -9,5 +9,8 @@ public record UpdateEventRequest(
         String description,
         ZonedDateTime startDate,
         ZonedDateTime endDate,
-        EventStatus status
+        EventStatus status,
+        Boolean outdoor,
+        String boundaryGeoJson,
+        String buildingPlanBase64
 ) {}

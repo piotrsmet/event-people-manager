@@ -7,19 +7,22 @@ import { getEventMembers, updateMemberRole, removeMember } from "../actions/even
 import { getInvites, generateInvite, revokeInvite } from "../actions/invite";
 import { getIncidents, resolveIncident } from "../actions/incident";
 import { ZoneResponse } from "../../types/zone";
-import { EventMemberResponse } from "../../types/event";
+import { EventMemberResponse, EventResponse } from "../../types/event";
 import { InviteTokenResponse } from "../../types/invite";
 import { IncidentResponse } from "../../types/incident";
+import TerritoryManager from "./TerritoryManager";
 
 interface DashboardTabsProps {
   eventId: string;
   token: string;
   onRefreshStats: () => void;
+  activeEvent: EventResponse | null;
+  onUpdateEvent: (updatedEvent: EventResponse) => void;
 }
 
-type TabType = "map" | "zones" | "team" | "invites" | "incidents";
+type TabType = "map" | "zones" | "team" | "invites" | "incidents" | "territory";
 
-export default function DashboardTabs({ eventId, token, onRefreshStats }: DashboardTabsProps) {
+export default function DashboardTabs({ eventId, token, onRefreshStats, activeEvent, onUpdateEvent }: DashboardTabsProps) {
   const [activeTab, setActiveTab] = useState<TabType>("map");
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -56,7 +59,7 @@ export default function DashboardTabs({ eventId, token, onRefreshStats }: Dashbo
   }, [eventId, activeTab]);
 
   async function fetchTabData() {
-    if (activeTab === "map") return;
+    if (activeTab === "map" || activeTab === "territory") return;
     setLoading(true);
     setError(null);
     try {
@@ -202,6 +205,16 @@ export default function DashboardTabs({ eventId, token, onRefreshStats }: Dashbo
           🗺️ Mapa Live
         </button>
         <button
+          onClick={() => setActiveTab("territory")}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-all duration-200 ${
+            activeTab === "territory"
+              ? "border-primary-blue text-text-main"
+              : "border-transparent text-text-muted hover:text-text-main"
+          }`}
+        >
+          📍 Obszar i Punkty
+        </button>
+        <button
           onClick={() => setActiveTab("incidents")}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-all duration-200 ${
             activeTab === "incidents"
@@ -251,7 +264,7 @@ export default function DashboardTabs({ eventId, token, onRefreshStats }: Dashbo
       )}
 
       <div className="w-full">
-        {loading && activeTab !== "map" ? (
+        {loading && activeTab !== "map" && activeTab !== "territory" ? (
           <div className="w-full h-48 flex flex-col items-center justify-center space-y-2">
             <div className="w-6 h-6 border-2 border-primary-blue border-t-transparent rounded-full animate-spin"></div>
             <p className="text-text-muted text-xs">Pobieranie danych...</p>
@@ -261,8 +274,18 @@ export default function DashboardTabs({ eventId, token, onRefreshStats }: Dashbo
             {/* 1. Live Map Tab */}
             {activeTab === "map" && (
               <div className="dashboard-panel p-6">
-                <LiveMapWidget token={token} memberUserIds={members.map((m) => m.userId)} />
+                <LiveMapWidget token={token} memberUserIds={members.map((m) => m.userId)} activeEvent={activeEvent} />
               </div>
+            )}
+
+            {/* Territory Tab */}
+            {activeTab === "territory" && (
+              <TerritoryManager
+                eventId={eventId}
+                token={token}
+                activeEvent={activeEvent}
+                onUpdateEvent={onUpdateEvent}
+              />
             )}
 
             {/* 2. Incidents Tab */}

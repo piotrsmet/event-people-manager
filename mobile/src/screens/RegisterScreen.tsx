@@ -13,7 +13,7 @@ import {
   ScrollView,
 } from "react-native";
 import { useAuth } from "../context/AuthContext";
-import { api } from "../services/api";
+import { authApi } from "../services/api/auth";
 
 interface RegisterScreenProps {
   onBackToLogin: () => void;
@@ -51,7 +51,7 @@ export default function RegisterScreen({ onBackToLogin }: RegisterScreenProps) {
     setLoading(true);
 
     try {
-      const registerRes = await api.register(cleanUsername, password, role);
+      const registerRes = await authApi.register(cleanUsername, password, role);
       if (!registerRes.success) {
         throw new Error(registerRes.error || "Nie udało się zarejestrować");
       }

@@ -20,6 +20,28 @@ export default function EventSelector({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [outdoor, setOutdoor] = useState(true);
+  const [buildingPlanBase64, setBuildingPlanBase64] = useState<string | undefined>(undefined);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setBuildingPlanBase64(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setBuildingPlanBase64(undefined);
+    }
+  };
+
+  const openModal = () => {
+    setOutdoor(true);
+    setBuildingPlanBase64(undefined);
+    setError(null);
+    setIsModalOpen(true);
+  };
 
   async function handleCreateEvent(formData: FormData) {
     setIsLoading(true);
@@ -33,7 +55,7 @@ export default function EventSelector({
     const startIso = startDate ? new Date(startDate).toISOString() : undefined;
     const endIso = endDate ? new Date(endDate).toISOString() : undefined;
 
-    const res = await createEvent(name, description, startIso, endIso);
+    const res = await createEvent(name, description, startIso, endIso, outdoor, undefined, buildingPlanBase64);
 
     if (res.success && res.data) {
       onEventCreated(res.data);
@@ -67,7 +89,7 @@ export default function EventSelector({
       </div>
 
       <button
-        onClick={() => setIsModalOpen(true)}
+        onClick={openModal}
         className="btn-primary py-2 px-3 mt-5 flex items-center space-x-1"
       >
         <span>+</span>
@@ -144,6 +166,58 @@ export default function EventSelector({
                   />
                 </div>
               </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-text-muted block">
+                  Typ wydarzenia
+                </label>
+                <div className="flex space-x-4">
+                  <label className="flex items-center space-x-2 text-sm text-text-main cursor-pointer">
+                    <input
+                      type="radio"
+                      name="outdoor"
+                      checked={outdoor}
+                      onChange={() => setOutdoor(true)}
+                      className="accent-primary-blue"
+                    />
+                    <span>Teren otwarty (GPS)</span>
+                  </label>
+                  <label className="flex items-center space-x-2 text-sm text-text-main cursor-pointer">
+                    <input
+                      type="radio"
+                      name="outdoor"
+                      checked={!outdoor}
+                      onChange={() => setOutdoor(false)}
+                      className="accent-primary-blue"
+                    />
+                    <span>Wewnątrz budynku</span>
+                  </label>
+                </div>
+              </div>
+
+              {!outdoor && (
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-text-muted block">
+                    Rzut budynku / Plan (obrazek)
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    required
+                    className="w-full text-xs text-text-muted file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-panel-border file:text-text-main hover:file:bg-panel-border/80 cursor-pointer"
+                  />
+                  {buildingPlanBase64 && (
+                    <div className="mt-2 border border-panel-border rounded p-2 bg-black/20 flex justify-center">
+                      <img
+                        src={buildingPlanBase64}
+                        alt="Podgląd planu"
+                        className="max-h-32 object-contain"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="flex justify-end space-x-3 pt-4 border-t border-panel-border">
                 <button

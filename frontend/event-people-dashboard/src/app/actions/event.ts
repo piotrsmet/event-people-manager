@@ -26,19 +26,55 @@ export async function createEvent(
   name: string,
   description: string,
   startDate?: string,
-  endDate?: string
+  endDate?: string,
+  outdoor?: boolean,
+  boundaryGeoJson?: string,
+  buildingPlanBase64?: string
 ): Promise<{ success: boolean; data?: EventResponse; error?: string }> {
   try {
     const headers = await getAuthHeaders();
     const res = await fetch(`${BACKEND_URL}/events`, {
       method: "POST",
       headers,
-      body: JSON.stringify({ name, description, startDate, endDate }),
+      body: JSON.stringify({ name, description, startDate, endDate, outdoor, boundaryGeoJson, buildingPlanBase64 }),
     });
 
     if (!res.ok) {
       const errData = await res.json().catch(() => ({}));
       return { success: false, error: errData.message || "Failed to create event" };
+    }
+
+    const data = await res.json();
+    return { success: true, data };
+  } catch (err) {
+    return { success: false, error: "Connection error" };
+  }
+}
+
+export async function updateEvent(
+  eventId: string,
+  updates: {
+    name?: string;
+    description?: string;
+    startDate?: string;
+    endDate?: string;
+    status?: 'DRAFT' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
+    outdoor?: boolean;
+    boundaryGeoJson?: string;
+    buildingPlanBase64?: string;
+  }
+): Promise<{ success: boolean; data?: EventResponse; error?: string }> {
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${BACKEND_URL}/events/${eventId}`, {
+      method: "PUT",
+      headers,
+      body: JSON.stringify(updates),
+    });
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      return { success: false, error: errData.message || "Failed to update event" };
     }
 
     const data = await res.json();

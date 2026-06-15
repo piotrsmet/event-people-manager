@@ -42,6 +42,16 @@ public class Event {
     @Builder.Default
     private EventStatus status = EventStatus.DRAFT;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean outdoor = true;
+
+    @Column(name = "boundary_geojson", columnDefinition = "TEXT")
+    private String boundaryGeoJson;
+
+    @Column(name = "building_plan_base64", columnDefinition = "TEXT")
+    private String buildingPlanBase64;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private ZonedDateTime createdAt;

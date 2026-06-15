@@ -21,6 +21,7 @@ public class EventSecurityService {
     private final ZoneRepository zoneRepository;
     private final ShiftRepository shiftRepository;
     private final IncidentRepository incidentRepository;
+    private final StrategicPointRepository strategicPointRepository;
 
     public boolean hasEventRole(UUID eventId, String... roleNames) {
         var auth = SecurityContextHolder.getContext().getAuthentication();
@@ -117,6 +118,21 @@ public class EventSecurityService {
         return incidentRepository.findById(incidentId)
                 .map(incident -> eventMemberRepository.findByEventIdAndUserId(incident.getEvent().getId(), user.getId())
                         .map(member -> member.getRole() == UserRole.COORDINATOR || member.getRole() == UserRole.SECURITY)
+                        .orElse(false))
+                .orElse(false);
+    }
+
+    public boolean canManageStrategicPoint(UUID pointId) {
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !(auth.getPrincipal() instanceof User user)) {
+            return false;
+        }
+        if (user.getRole() == UserRole.COORDINATOR) {
+            return true;
+        }
+        return strategicPointRepository.findById(pointId)
+                .map(point -> eventMemberRepository.findByEventIdAndUserId(point.getEvent().getId(), user.getId())
+                        .map(member -> member.getRole() == UserRole.COORDINATOR)
                         .orElse(false))
                 .orElse(false);
     }

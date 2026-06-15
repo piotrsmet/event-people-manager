@@ -14,5 +14,8 @@ public record EventResponse(
         String ownerUsername,
         EventStatus status,
         long memberCount,
+        boolean outdoor,
+        String boundaryGeoJson,
+        String buildingPlanBase64,
         ZonedDateTime createdAt
 ) {}

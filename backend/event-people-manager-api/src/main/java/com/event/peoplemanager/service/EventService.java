@@ -38,6 +38,9 @@ public class EventService {
                 .endDate(request.endDate())
                 .owner(owner)
                 .status(EventStatus.DRAFT)
+                .outdoor(request.outdoor() != null ? request.outdoor() : true)
+                .boundaryGeoJson(request.boundaryGeoJson())
+                .buildingPlanBase64(request.buildingPlanBase64())
                 .build();
 
         event = eventRepository.save(event);
@@ -86,6 +89,15 @@ public class EventService {
         }
         if (request.status() != null) {
             event.setStatus(request.status());
+        }
+        if (request.outdoor() != null) {
+            event.setOutdoor(request.outdoor());
+        }
+        if (request.boundaryGeoJson() != null) {
+            event.setBoundaryGeoJson(request.boundaryGeoJson());
+        }
+        if (request.buildingPlanBase64() != null) {
+            event.setBuildingPlanBase64(request.buildingPlanBase64());
         }
 
         return eventRepository.save(event);

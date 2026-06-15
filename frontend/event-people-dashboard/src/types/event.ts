@@ -7,6 +7,9 @@ export interface EventResponse {
   ownerUsername: string;
   status: 'DRAFT' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
   memberCount: number;
+  outdoor: boolean;
+  boundaryGeoJson?: string;
+  buildingPlanBase64?: string;
   createdAt: string;
 }
 
