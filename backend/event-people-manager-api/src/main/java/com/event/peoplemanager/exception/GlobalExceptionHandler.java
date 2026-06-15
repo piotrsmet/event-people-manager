@@ -58,6 +58,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleGeneric(
             Exception ex, HttpServletRequest request
     ) {
+        ex.printStackTrace(); // Wypisz ślad stosu do konsoli serwera dla debugowania
         return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred", request);
     }
 
