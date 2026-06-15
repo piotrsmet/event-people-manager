@@ -1,6 +1,6 @@
 export interface LocationLog {
-  id: number;
-  userId: number;
+  id: string;
+  userId: string;
   latitude: number;
   longitude: number;
   status: string;

@@ -4,7 +4,7 @@ import SockJS from "sockjs-client";
 import { LocationLog } from "../types/location";
 
 export function useLiveLocations(token: string) {
-  const [locations, setLocations] = useState<Record<number, LocationLog>>({});
+  const [locations, setLocations] = useState<Record<string, LocationLog>>({});
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {

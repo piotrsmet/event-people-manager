@@ -16,8 +16,11 @@ const MapComponent = dynamic(() => import("./Map"), {
   )
 });
 
-export default function LiveMapWidget({ token }: { token: string }) {
+export default function LiveMapWidget({ token, memberUserIds = [] }: { token: string; memberUserIds?: string[] }) {
   const { locations, isConnected } = useLiveLocations(token);
 
-  return <MapComponent locations={locations} isConnected={isConnected} />;
+  // Filtrujemy lokalizacje, pokazując tylko pozycje wolontariuszy przypisanych do wybranego wydarzenia
+  const filteredLocations = locations.filter(loc => memberUserIds.includes(loc.userId));
+
+  return <MapComponent locations={filteredLocations} isConnected={isConnected} />;
 }
