@@ -1,0 +1,11 @@
+CREATE TABLE invite_tokens (
+    id UUID PRIMARY KEY,
+    event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    code VARCHAR(10) NOT NULL UNIQUE,
+    assigned_role VARCHAR(50) NOT NULL DEFAULT 'VOLUNTEER',
+    max_uses INT,
+    current_uses INT NOT NULL DEFAULT 0,
+    expires_at TIMESTAMP WITH TIME ZONE,
+    created_by UUID NOT NULL REFERENCES users(id),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
