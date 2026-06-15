@@ -38,6 +38,10 @@ public class Incident {
 
     private String description;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "event_id")
+    private Event event;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private IncidentStatus status;

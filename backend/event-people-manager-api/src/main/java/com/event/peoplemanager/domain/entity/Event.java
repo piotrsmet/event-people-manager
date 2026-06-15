@@ -1,5 +1,6 @@
 package com.event.peoplemanager.domain.entity;
 
+import com.event.peoplemanager.domain.enums.EventStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -9,13 +10,13 @@ import java.time.ZonedDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "zones")
+@Table(name = "events")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Zone {
+public class Event {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -26,11 +27,20 @@ public class Zone {
 
     private String description;
 
-    private Integer capacity;
+    @Column(name = "start_date")
+    private ZonedDateTime startDate;
+
+    @Column(name = "end_date")
+    private ZonedDateTime endDate;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "event_id")
-    private Event event;
+    @JoinColumn(name = "owner_id", nullable = false)
+    private User owner;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    @Builder.Default
+    private EventStatus status = EventStatus.DRAFT;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

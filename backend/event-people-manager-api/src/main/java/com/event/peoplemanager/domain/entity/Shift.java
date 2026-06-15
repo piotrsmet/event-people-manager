@@ -30,6 +30,10 @@ public class Shift {
     @JoinColumn(name = "zone_id")
     private Zone zone;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "event_id")
+    private Event event;
+
     @Column(name = "start_time")
     private ZonedDateTime startTime;
 
