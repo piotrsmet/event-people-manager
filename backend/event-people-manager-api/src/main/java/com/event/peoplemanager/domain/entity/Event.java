@@ -52,6 +52,14 @@ public class Event {
     @Column(name = "building_plan_base64", columnDefinition = "TEXT")
     private String buildingPlanBase64;
 
+    @Builder.Default
+    @Column(name = "custom_roles", length = 1000)
+    private String customRoles = "";
+
+    @Builder.Default
+    @Column(name = "custom_tags", length = 1000)
+    private String customTags = "";
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private ZonedDateTime createdAt;

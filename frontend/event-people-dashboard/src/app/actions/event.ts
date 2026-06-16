@@ -62,6 +62,8 @@ export async function updateEvent(
     outdoor?: boolean;
     boundaryGeoJson?: string;
     buildingPlanBase64?: string;
+    customRoles?: string;
+    customTags?: string;
   }
 ): Promise<{ success: boolean; data?: EventResponse; error?: string }> {
   try {

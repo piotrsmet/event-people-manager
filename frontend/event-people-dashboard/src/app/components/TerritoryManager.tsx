@@ -424,11 +424,75 @@ export default function TerritoryManager({
     }
   }
 
+  // Get dictionary of roles/tags from activeEvent (with defaults as fallback)
+  const eventRoles = activeEvent?.customRoles
+    ? activeEvent.customRoles.split(",").filter(Boolean)
+    : ["COORDINATOR", "SECURITY", "VOLUNTEER"];
+
+  const eventTags = activeEvent?.customTags
+    ? activeEvent.customTags.split(",").filter(Boolean)
+    : ["STAFF", "MEDIA", "VIP", "TECHNICIAN", "ARTIST", "BACKSTAGE", "CREW"];
+
+  const addRoleToEventDictionary = async (newRole: string) => {
+    if (!activeEvent) return;
+    const currentRoles = activeEvent.customRoles
+      ? activeEvent.customRoles.split(",").filter(Boolean)
+      : ["COORDINATOR", "SECURITY", "VOLUNTEER"];
+    if (!currentRoles.includes(newRole)) {
+      const updatedRoles = [...currentRoles, newRole].join(",");
+      const res = await updateEvent(eventId, { customRoles: updatedRoles });
+      if (res.success && res.data) {
+        onUpdateEvent(res.data);
+      }
+    }
+  };
+
+  const removeRoleFromEventDictionary = async (roleToRemove: string) => {
+    if (!activeEvent) return;
+    const currentRoles = activeEvent.customRoles
+      ? activeEvent.customRoles.split(",").filter(Boolean)
+      : ["COORDINATOR", "SECURITY", "VOLUNTEER"];
+    const updatedRoles = currentRoles.filter((r) => r !== roleToRemove).join(",");
+    const res = await updateEvent(eventId, { customRoles: updatedRoles });
+    if (res.success && res.data) {
+      onUpdateEvent(res.data);
+    }
+  };
+
+  const addTagToEventDictionary = async (newTag: string) => {
+    if (!activeEvent) return;
+    const currentTags = activeEvent.customTags
+      ? activeEvent.customTags.split(",").filter(Boolean)
+      : ["STAFF", "MEDIA", "VIP", "TECHNICIAN", "ARTIST", "BACKSTAGE", "CREW"];
+    if (!currentTags.includes(newTag)) {
+      const updatedTags = [...currentTags, newTag].join(",");
+      const res = await updateEvent(eventId, { customTags: updatedTags });
+      if (res.success && res.data) {
+        onUpdateEvent(res.data);
+      }
+    }
+  };
+
+  const removeTagFromEventDictionary = async (tagToRemove: string) => {
+    if (!activeEvent) return;
+    const currentTags = activeEvent.customTags
+      ? activeEvent.customTags.split(",").filter(Boolean)
+      : ["STAFF", "MEDIA", "VIP", "TECHNICIAN", "ARTIST", "BACKSTAGE", "CREW"];
+    const updatedTags = currentTags.filter((t) => t !== tagToRemove).join(",");
+    const res = await updateEvent(eventId, { customTags: updatedTags });
+    if (res.success && res.data) {
+      onUpdateEvent(res.data);
+    }
+  };
+
   // Handle custom roles and tags additions/deletions in form
   const handleAddRole = () => {
     const val = roleInput.trim().toUpperCase();
-    if (val && !zoneFormRoles.includes(val)) {
-      setZoneFormRoles((prev) => [...prev, val]);
+    if (val) {
+      if (!zoneFormRoles.includes(val)) {
+        setZoneFormRoles((prev) => [...prev, val]);
+      }
+      addRoleToEventDictionary(val);
     }
     setRoleInput("");
   };
@@ -439,14 +503,29 @@ export default function TerritoryManager({
 
   const handleAddTag = () => {
     const val = tagInput.trim().toUpperCase();
-    if (val && !zoneFormTags.includes(val)) {
-      setZoneFormTags((prev) => [...prev, val]);
+    if (val) {
+      if (!zoneFormTags.includes(val)) {
+        setZoneFormTags((prev) => [...prev, val]);
+      }
+      addTagToEventDictionary(val);
     }
     setTagInput("");
   };
 
   const handleRemoveTag = (tag: string) => {
     setZoneFormTags((prev) => prev.filter((t) => t !== tag));
+  };
+
+  const handleToggleDictionaryRole = (role: string) => {
+    setZoneFormRoles((prev) =>
+      prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role]
+    );
+  };
+
+  const handleToggleDictionaryTag = (tag: string) => {
+    setZoneFormTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    );
   };
 
   // Create strategic point
@@ -987,26 +1066,39 @@ export default function TerritoryManager({
                       </button>
                     </div>
                     
-                    {/* Role Suggestion Helpers */}
+                    {/* Role Suggestions (Słownik wydarzenia) */}
                     <div className="flex flex-wrap gap-1 mt-1">
-                      <span className="text-[9px] text-text-muted mr-1">Sugestie:</span>
-                      {SYSTEM_ROLES.map(r => (
-                        <button
-                          key={r}
-                          type="button"
-                          onClick={() => {
-                            if (!zoneFormRoles.includes(r)) {
-                              setZoneFormRoles(prev => [...prev, r]);
-                            }
-                          }}
-                          className="text-[9px] bg-panel-border hover:bg-panel-border/80 text-text-muted px-1.5 py-0.5 rounded font-mono"
-                        >
-                          +{r}
-                        </button>
-                      ))}
+                      <span className="text-[9px] text-text-muted mr-1">Słownik eventu (kliknij aby wybrać):</span>
+                      {eventRoles.map(r => {
+                        const isSelected = zoneFormRoles.includes(r);
+                        return (
+                          <span
+                            key={r}
+                            className={`inline-flex items-center space-x-1 text-[9px] px-1.5 py-0.5 rounded font-mono transition-all select-none cursor-pointer ${
+                              isSelected
+                                ? "bg-blue-500 text-white font-bold"
+                                : "bg-panel-border/80 text-text-muted hover:bg-panel-border"
+                            }`}
+                            onClick={() => handleToggleDictionaryRole(r)}
+                          >
+                            <span>{r}</span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeRoleFromEventDictionary(r);
+                              }}
+                              className="text-[10px] text-text-muted hover:text-white font-bold ml-1"
+                              title="Usuń ze słownika wydarzenia"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        );
+                      })}
                     </div>
 
-                    <div className="flex flex-wrap gap-1.5 mt-2 min-h-[24px]">
+                    <div className="flex flex-wrap gap-1.5 mt-2.5 min-h-[24px]">
                       {zoneFormRoles.length === 0 ? (
                         <span className="text-[10px] text-text-muted italic">Brak ograniczeń ról (wszyscy mają wstęp)</span>
                       ) : (
@@ -1055,26 +1147,39 @@ export default function TerritoryManager({
                       </button>
                     </div>
 
-                    {/* Tag Suggestion Helpers */}
+                    {/* Tag Suggestions (Słownik wydarzenia) */}
                     <div className="flex flex-wrap gap-1 mt-1">
-                      <span className="text-[9px] text-text-muted mr-1">Sugestie:</span>
-                      {ACCESS_TAGS.map(t => (
-                        <button
-                          key={t}
-                          type="button"
-                          onClick={() => {
-                            if (!zoneFormTags.includes(t)) {
-                              setZoneFormTags(prev => [...prev, t]);
-                            }
-                          }}
-                          className="text-[9px] bg-panel-border hover:bg-panel-border/80 text-text-muted px-1.5 py-0.5 rounded font-mono"
-                        >
-                          +{t}
-                        </button>
-                      ))}
+                      <span className="text-[9px] text-text-muted mr-1">Słownik eventu (kliknij aby wybrać):</span>
+                      {eventTags.map(t => {
+                        const isSelected = zoneFormTags.includes(t);
+                        return (
+                          <span
+                            key={t}
+                            className={`inline-flex items-center space-x-1 text-[9px] px-1.5 py-0.5 rounded font-mono transition-all select-none cursor-pointer ${
+                              isSelected
+                                ? "bg-amber-500 text-white font-bold"
+                                : "bg-panel-border/80 text-text-muted hover:bg-panel-border"
+                            }`}
+                            onClick={() => handleToggleDictionaryTag(t)}
+                          >
+                            <span>{t}</span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeTagFromEventDictionary(t);
+                              }}
+                              className="text-[10px] text-text-muted hover:text-white font-bold ml-1"
+                              title="Usuń ze słownika wydarzenia"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        );
+                      })}
                     </div>
 
-                    <div className="flex flex-wrap gap-1.5 mt-2 min-h-[24px]">
+                    <div className="flex flex-wrap gap-1.5 mt-2.5 min-h-[24px]">
                       {zoneFormTags.length === 0 ? (
                         <span className="text-[10px] text-text-muted italic">Brak ograniczeń przepustek (wszyscy mają wstęp)</span>
                       ) : (

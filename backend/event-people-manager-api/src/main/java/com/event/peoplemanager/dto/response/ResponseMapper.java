@@ -34,6 +34,8 @@ public class ResponseMapper {
                 event.isOutdoor(),
                 event.getBoundaryGeoJson(),
                 event.getBuildingPlanBase64(),
+                event.getCustomRoles(),
+                event.getCustomTags(),
                 event.getCreatedAt()
         );
     }

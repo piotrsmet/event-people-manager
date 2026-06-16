@@ -41,6 +41,8 @@ public class EventService {
                 .outdoor(request.outdoor() != null ? request.outdoor() : true)
                 .boundaryGeoJson(request.boundaryGeoJson())
                 .buildingPlanBase64(request.buildingPlanBase64())
+                .customRoles(request.customRoles() != null ? request.customRoles() : "")
+                .customTags(request.customTags() != null ? request.customTags() : "")
                 .build();
 
         event = eventRepository.save(event);
@@ -98,6 +100,12 @@ public class EventService {
         }
         if (request.buildingPlanBase64() != null) {
             event.setBuildingPlanBase64(request.buildingPlanBase64());
+        }
+        if (request.customRoles() != null) {
+            event.setCustomRoles(request.customRoles());
+        }
+        if (request.customTags() != null) {
+            event.setCustomTags(request.customTags());
         }
 
         return eventRepository.save(event);

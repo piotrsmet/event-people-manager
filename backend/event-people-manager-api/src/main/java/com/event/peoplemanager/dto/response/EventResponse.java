@@ -17,5 +17,7 @@ public record EventResponse(
         boolean outdoor,
         String boundaryGeoJson,
         String buildingPlanBase64,
+        String customRoles,
+        String customTags,
         ZonedDateTime createdAt
 ) {}

@@ -12,5 +12,7 @@ public record UpdateEventRequest(
         EventStatus status,
         Boolean outdoor,
         String boundaryGeoJson,
-        String buildingPlanBase64
+        String buildingPlanBase64,
+        String customRoles,
+        String customTags
 ) {}

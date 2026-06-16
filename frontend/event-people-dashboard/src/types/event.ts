@@ -10,6 +10,8 @@ export interface EventResponse {
   outdoor: boolean;
   boundaryGeoJson?: string;
   buildingPlanBase64?: string;
+  customRoles?: string;
+  customTags?: string;
   createdAt: string;
 }
 
