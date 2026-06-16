@@ -114,7 +114,11 @@ public class ResponseMapper {
                 zone.getDescription(),
                 zone.getCapacity(),
                 zone.getEvent() != null ? zone.getEvent().getId() : null,
-                zone.getCreatedAt()
+                zone.getCreatedAt(),
+                zone.getBoundaryGeoJson(),
+                zone.getColor(),
+                zone.getAllowedRoles(),
+                zone.getAccessTags()
         );
     }
 

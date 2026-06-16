@@ -5,9 +5,11 @@ import dynamic from "next/dynamic";
 import { useLiveLocations } from "../../hooks/useLiveLocations";
 import { EventResponse } from "../../types/event";
 import { StrategicPointResponse } from "../../types/strategicPoint";
+import { ZoneResponse } from "../../types/zone";
 import { ShiftResponse } from "../../types/shift";
 import { getStrategicPoints } from "../actions/strategicPoint";
 import { getActiveShifts } from "../actions/shift";
+import { getZones } from "../actions/zone";
 
 // Disable SSR for Map due to window object in Leaflet
 const MapComponent = dynamic(() => import("./Map"), {
@@ -32,12 +34,13 @@ export default function LiveMapWidget({ token, memberUserIds, activeEvent }: Liv
   const { locations, isConnected } = useLiveLocations(token);
   const [strategicPoints, setStrategicPoints] = useState<StrategicPointResponse[]>([]);
   const [activeShifts, setActiveShifts] = useState<ShiftResponse[]>([]);
+  const [zones, setZones] = useState<ZoneResponse[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (activeEvent) {
       loadMapFeatures();
-      // Poll active shifts every 10 seconds for real-time indoor volunteer updates
+      // Poll active shifts every 10 seconds for real-time volunteer updates
       const interval = setInterval(loadMapFeatures, 10000);
       return () => clearInterval(interval);
     }
@@ -46,9 +49,10 @@ export default function LiveMapWidget({ token, memberUserIds, activeEvent }: Liv
   async function loadMapFeatures() {
     if (!activeEvent) return;
     try {
-      const [ptsRes, shiftsRes] = await Promise.all([
+      const [ptsRes, shiftsRes, zonesRes] = await Promise.all([
         getStrategicPoints(activeEvent.id),
         getActiveShifts(activeEvent.id),
+        getZones(activeEvent.id),
       ]);
 
       if (ptsRes.success && ptsRes.data) {
@@ -56,6 +60,9 @@ export default function LiveMapWidget({ token, memberUserIds, activeEvent }: Liv
       }
       if (shiftsRes.success && shiftsRes.data) {
         setActiveShifts(shiftsRes.data);
+      }
+      if (zonesRes.success && zonesRes.data) {
+        setZones(zonesRes.data);
       }
     } catch (err) {
       console.error("Błąd wczytywania danych mapy:", err);
@@ -85,6 +92,7 @@ export default function LiveMapWidget({ token, memberUserIds, activeEvent }: Liv
         isConnected={isConnected}
         boundaryGeoJson={activeEvent.boundaryGeoJson}
         strategicPoints={strategicPoints}
+        zones={zones}
       />
     );
   }

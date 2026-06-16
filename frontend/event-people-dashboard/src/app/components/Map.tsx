@@ -6,6 +6,7 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { LocationLog } from "../../types/location";
 import { StrategicPointResponse } from "../../types/strategicPoint";
+import { ZoneResponse } from "../../types/zone";
 
 // Helper to create beautiful icons for strategic points on Leaflet map
 const getStrategicIcon = (type: string) => {
@@ -41,9 +42,31 @@ interface MapProps {
   isConnected: boolean;
   boundaryGeoJson?: string;
   strategicPoints?: StrategicPointResponse[];
+  zones?: ZoneResponse[];
 }
 
-export default function Map({ locations, isConnected, boundaryGeoJson, strategicPoints = [] }: MapProps) {
+const parseGeoJsonToPoints = (geoJsonStr: string | null | undefined): [number, number][] => {
+  if (!geoJsonStr) return [];
+  try {
+    const geojson = JSON.parse(geoJsonStr);
+    if (geojson.type === "Polygon" && Array.isArray(geojson.coordinates?.[0])) {
+      const leafletCoords = geojson.coordinates[0].map((c: [number, number]) => [c[1], c[0]] as [number, number]);
+      if (
+        leafletCoords.length > 1 &&
+        leafletCoords[0][0] === leafletCoords[leafletCoords.length - 1][0] &&
+        leafletCoords[0][1] === leafletCoords[leafletCoords.length - 1][1]
+      ) {
+        leafletCoords.pop();
+      }
+      return leafletCoords;
+    }
+  } catch (e) {
+    console.error("Błąd parsowania granic strefy w Map.tsx:", e);
+  }
+  return [];
+};
+
+export default function Map({ locations, isConnected, boundaryGeoJson, strategicPoints = [], zones = [] }: MapProps) {
   const [boundaryCoords, setBoundaryCoords] = useState<[number, number][]>([]);
 
   useEffect(() => {
@@ -107,11 +130,64 @@ export default function Map({ locations, isConnected, boundaryGeoJson, strategic
               pathOptions={{
                 color: "#3b82f6",
                 fillColor: "#3b82f6",
-                fillOpacity: 0.15,
+                fillOpacity: 0.1,
                 weight: 3
               }}
             />
           )}
+
+          {/* Render Zone Polygons */}
+          {zones.map((z) => {
+            const pts = parseGeoJsonToPoints(z.boundaryGeoJson);
+            if (pts.length < 3) return null;
+
+            return (
+              <Polygon
+                key={z.id}
+                positions={pts}
+                pathOptions={{
+                  color: z.color || "#3b82f6",
+                  fillColor: z.color || "#3b82f6",
+                  fillOpacity: 0.22,
+                  weight: 2,
+                }}
+              >
+                <Popup className="custom-popup">
+                  <div className="p-1.5 space-y-1.5 text-text-main text-xs min-w-[150px]">
+                    <div className="font-bold text-sm flex items-center space-x-1.5" style={{ color: z.color || '#3b82f6' }}>
+                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: z.color || '#3b82f6' }}></span>
+                      <span>{z.name}</span>
+                    </div>
+                    {z.description && <div className="text-text-muted italic">{z.description}</div>}
+                    <div className="border-t border-panel-border/40 pt-1">
+                      Pojemność: <strong className="text-text-main">{z.capacity || "Nielimitowana"}</strong>
+                    </div>
+                    {(z.allowedRoles || z.accessTags) ? (
+                      <div className="space-y-1 border-t border-panel-border/40 pt-1">
+                        <div className="font-semibold text-[10px] text-text-muted uppercase tracking-wider">Dostęp:</div>
+                        {z.allowedRoles && (
+                          <div className="flex flex-wrap gap-1">
+                            {z.allowedRoles.split(',').filter(Boolean).map(r => (
+                              <span key={r} className="bg-blue-500/20 text-blue-400 border border-blue-500/30 text-[9px] px-1 rounded font-bold uppercase">{r}</span>
+                            ))}
+                          </div>
+                        )}
+                        {z.accessTags && (
+                          <div className="flex flex-wrap gap-1">
+                            {z.accessTags.split(',').filter(Boolean).map(t => (
+                              <span key={t} className="bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[9px] px-1 rounded font-bold uppercase">{t}</span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-status-ok text-[10px] font-semibold border-t border-panel-border/40 pt-1">🔓 Otwarta strefa</div>
+                    )}
+                  </div>
+                </Popup>
+              </Polygon>
+            );
+          })}
 
           {/* Render Strategic Points */}
           {strategicPoints.map((pt) => {

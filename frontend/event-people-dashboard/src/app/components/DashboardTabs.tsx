@@ -59,11 +59,11 @@ export default function DashboardTabs({ eventId, token, onRefreshStats, activeEv
   }, [eventId, activeTab]);
 
   async function fetchTabData() {
-    if (activeTab === "map" || activeTab === "territory") return;
+    if (activeTab === "map") return;
     setLoading(true);
     setError(null);
     try {
-      if (activeTab === "zones") {
+      if (activeTab === "zones" || activeTab === "territory") {
         const res = await getZones(eventId);
         if (res.success && res.data) setZones(res.data);
         else setError(res.error || "Błąd pobierania stref");
@@ -285,6 +285,8 @@ export default function DashboardTabs({ eventId, token, onRefreshStats, activeEv
                 token={token}
                 activeEvent={activeEvent}
                 onUpdateEvent={onUpdateEvent}
+                zones={zones}
+                onRefreshZones={fetchTabData}
               />
             )}
 

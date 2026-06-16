@@ -28,6 +28,21 @@ public class Zone {
 
     private Integer capacity;
 
+    @Column(name = "boundary_geojson")
+    private String boundaryGeoJson;
+
+    @Builder.Default
+    @Column(name = "color")
+    private String color = "#3b82f6";
+
+    @Builder.Default
+    @Column(name = "allowed_roles")
+    private String allowedRoles = "";
+
+    @Builder.Default
+    @Column(name = "access_tags")
+    private String accessTags = "";
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "event_id")
     private Event event;

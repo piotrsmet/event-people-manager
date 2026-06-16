@@ -8,5 +8,9 @@ public record CreateZoneRequest(
         @NotBlank(message = "Zone name is required")
         String name,
         String description,
-        Integer capacity
+        Integer capacity,
+        String boundaryGeoJson,
+        String color,
+        String allowedRoles,
+        String accessTags
 ) {}

@@ -29,6 +29,10 @@ public class ZoneService {
                 .name(request.name())
                 .description(request.description())
                 .capacity(request.capacity())
+                .boundaryGeoJson(request.boundaryGeoJson())
+                .color(request.color() != null ? request.color() : "#3b82f6")
+                .allowedRoles(request.allowedRoles() != null ? request.allowedRoles() : "")
+                .accessTags(request.accessTags() != null ? request.accessTags() : "")
                 .event(event)
                 .build();
 
@@ -50,6 +54,10 @@ public class ZoneService {
         if (request.name() != null) zone.setName(request.name());
         if (request.description() != null) zone.setDescription(request.description());
         if (request.capacity() != null) zone.setCapacity(request.capacity());
+        zone.setBoundaryGeoJson(request.boundaryGeoJson());
+        if (request.color() != null) zone.setColor(request.color());
+        if (request.allowedRoles() != null) zone.setAllowedRoles(request.allowedRoles());
+        if (request.accessTags() != null) zone.setAccessTags(request.accessTags());
 
         return zoneRepository.save(zone);
     }

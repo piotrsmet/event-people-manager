@@ -9,5 +9,9 @@ public record ZoneResponse(
         String description,
         Integer capacity,
         UUID eventId,
-        ZonedDateTime createdAt
+        ZonedDateTime createdAt,
+        String boundaryGeoJson,
+        String color,
+        String allowedRoles,
+        String accessTags
 ) {}

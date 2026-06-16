@@ -4,6 +4,7 @@ import { MapContainer, TileLayer, Polygon, Marker, Popup, useMapEvents } from "r
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { StrategicPointResponse } from "../../types/strategicPoint";
+import { ZoneResponse } from "../../types/zone";
 
 // Helper to create beautiful icons for strategic points
 const getStrategicIcon = (type: string) => {
@@ -23,13 +24,33 @@ const getStrategicIcon = (type: string) => {
   });
 };
 
+// Helper for zone vertex icons (small dot of the zone's color)
+const getVertexIcon = (color: string) => {
+  return L.divIcon({
+    html: `<div class="w-3.5 h-3.5 rounded-full border-2 border-white shadow-md cursor-pointer" style="background-color: ${color};"></div>`,
+    className: "custom-vertex-icon",
+    iconSize: [14, 14],
+    iconAnchor: [7, 7],
+  });
+};
+
 interface TerritoryMapProps {
   boundaryPoints: [number, number][];
+  onUpdateBoundaryPoint?: (index: number, lat: number, lng: number) => void;
   onMapClick: (lat: number, lng: number) => void;
   strategicPoints: StrategicPointResponse[];
   onDeletePoint: (id: string) => void;
   isDrawingBoundary: boolean;
   isAddingPoint: boolean;
+  
+  // Zone related props
+  zones: ZoneResponse[];
+  activeZoneId?: string | null;
+  isDrawingZone: boolean;
+  zoneDrawingPoints: [number, number][];
+  onUpdateZoneDrawingPoint?: (index: number, lat: number, lng: number) => void;
+  editingZonePoints: [number, number][];
+  onUpdateEditingZonePoint?: (index: number, lat: number, lng: number) => void;
 }
 
 function MapClickHandler({ onClick }: { onClick: (lat: number, lng: number) => void }) {
@@ -41,13 +62,42 @@ function MapClickHandler({ onClick }: { onClick: (lat: number, lng: number) => v
   return null;
 }
 
+const parseGeoJsonToPoints = (geoJsonStr: string | null | undefined): [number, number][] => {
+  if (!geoJsonStr) return [];
+  try {
+    const geojson = JSON.parse(geoJsonStr);
+    if (geojson.type === "Polygon" && Array.isArray(geojson.coordinates?.[0])) {
+      const leafletCoords = geojson.coordinates[0].map((c: [number, number]) => [c[1], c[0]] as [number, number]);
+      if (
+        leafletCoords.length > 1 &&
+        leafletCoords[0][0] === leafletCoords[leafletCoords.length - 1][0] &&
+        leafletCoords[0][1] === leafletCoords[leafletCoords.length - 1][1]
+      ) {
+        leafletCoords.pop();
+      }
+      return leafletCoords;
+    }
+  } catch (e) {
+    console.error("Błąd parsowania granic strefy:", e);
+  }
+  return [];
+};
+
 export default function TerritoryMap({
   boundaryPoints,
+  onUpdateBoundaryPoint,
   onMapClick,
   strategicPoints,
   onDeletePoint,
   isDrawingBoundary,
   isAddingPoint,
+  zones,
+  activeZoneId,
+  isDrawingZone,
+  zoneDrawingPoints,
+  onUpdateZoneDrawingPoint,
+  editingZonePoints,
+  onUpdateEditingZonePoint,
 }: TerritoryMapProps) {
   // Center map on the first boundary point or a default location
   const center: [number, number] = boundaryPoints.length > 0 ? boundaryPoints[0] : [52.2297, 21.0122];
@@ -56,13 +106,23 @@ export default function TerritoryMap({
     <div className="w-full h-[550px] rounded-lg overflow-hidden border border-panel-border relative z-0">
       {/* Visual Indicator of Mode */}
       <div className="absolute top-4 right-4 z-[400] bg-panel-bg/95 border border-panel-border p-2.5 rounded shadow-lg text-xs font-semibold text-text-main flex items-center space-x-2">
-        <span className={`w-2 h-2 rounded-full ${isDrawingBoundary ? 'bg-primary-blue animate-pulse' : isAddingPoint ? 'bg-amber-500 animate-pulse' : 'bg-text-muted'}`}></span>
+        <span className={`w-2 h-2 rounded-full ${
+          isDrawingBoundary ? 'bg-primary-blue animate-pulse' : 
+          isDrawingZone ? 'bg-purple-500 animate-pulse' :
+          activeZoneId ? 'bg-pink-500 animate-pulse' :
+          isAddingPoint ? 'bg-amber-500 animate-pulse' : 
+          'bg-text-muted'
+        }`}></span>
         <span>
           {isDrawingBoundary
-            ? "Tryb rysowania: klikaj na mapie, by stawiać granice"
+            ? "Tryb rysowania: klikaj na mapie, by stawiać granice wydarzenia (możesz przeciągać punkty)"
+            : isDrawingZone
+            ? "Tryb rysowania strefy: klikaj na mapie, by stawiać rogi strefy (możesz je przeciągać)"
+            : activeZoneId
+            ? "Tryb edycji strefy: przeciągaj wierzchołki strefy na mapie, by zmienić jej obszar"
             : isAddingPoint
-            ? "Tryb dodawania: kliknij na mapie, by postawić punkt"
-            : "Tryb podglądu: kliknij na punkt, by zobaczyć szczegóły"}
+            ? "Tryb dodawania: kliknij na mapie, by postawić punkt strategiczny"
+            : "Tryb podglądu: kliknij na punkt lub strefę, by zobaczyć szczegóły"}
         </span>
       </div>
 
@@ -80,34 +140,162 @@ export default function TerritoryMap({
         {/* Map Click Handler */}
         <MapClickHandler onClick={onMapClick} />
 
-        {/* Boundary Polygon */}
+        {/* Event Boundary Polygon */}
         {boundaryPoints.length >= 3 && (
           <Polygon
             positions={boundaryPoints}
             pathOptions={{
               color: "#3b82f6",
               fillColor: "#3b82f6",
-              fillOpacity: 0.2,
+              fillOpacity: 0.1,
               weight: 3,
               dashArray: isDrawingBoundary ? "5, 5" : undefined,
             }}
           />
         )}
 
-        {/* Boundary Vertex Markers (rendered only during drawing mode for easy adjustments) */}
+        {/* Event Boundary Vertex Markers (rendered only during drawing mode for easy adjustments, now draggable!) */}
         {isDrawingBoundary &&
           boundaryPoints.map((pt, idx) => (
             <Marker
               key={`vertex-${idx}`}
               position={pt}
-              icon={L.divIcon({
-                html: `<div class="w-3 h-3 rounded-full bg-primary-blue border-2 border-white"></div>`,
-                className: "custom-vertex-icon",
-                iconSize: [12, 12],
-                iconAnchor: [6, 6],
-              })}
+              draggable={true}
+              eventHandlers={{
+                dragend: (e) => {
+                  const target = e.target;
+                  if (target) {
+                    const latLng = target.getLatLng();
+                    onUpdateBoundaryPoint?.(idx, latLng.lat, latLng.lng);
+                  }
+                }
+              }}
+              icon={getVertexIcon("#3b82f6")}
             />
           ))}
+
+        {/* Render Saved Zones (except the one being actively edited as we draw it separately) */}
+        {zones.map((z) => {
+          if (z.id === activeZoneId) return null; // Rendered separately below
+          const pts = parseGeoJsonToPoints(z.boundaryGeoJson);
+          if (pts.length < 3) return null;
+
+          return (
+            <Polygon
+              key={z.id}
+              positions={pts}
+              pathOptions={{
+                color: z.color || "#3b82f6",
+                fillColor: z.color || "#3b82f6",
+                fillOpacity: 0.25,
+                weight: 2,
+              }}
+            >
+              <Popup className="custom-popup">
+                <div className="p-1.5 space-y-1.5 text-text-main text-xs min-w-[150px]">
+                  <div className="font-bold text-sm flex items-center space-x-1.5" style={{ color: z.color || '#3b82f6' }}>
+                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: z.color || '#3b82f6' }}></span>
+                    <span>{z.name}</span>
+                  </div>
+                  {z.description && <div className="text-text-muted italic">{z.description}</div>}
+                  <div className="border-t border-panel-border/40 pt-1">
+                    Pojemność: <strong className="text-text-main">{z.capacity || "Nielimitowana"}</strong>
+                  </div>
+                  {(z.allowedRoles || z.accessTags) ? (
+                    <div className="space-y-1 border-t border-panel-border/40 pt-1">
+                      <div className="font-semibold text-[10px] text-text-muted uppercase tracking-wider">Dostęp:</div>
+                      {z.allowedRoles && (
+                        <div className="flex flex-wrap gap-1">
+                          {z.allowedRoles.split(',').filter(Boolean).map(r => (
+                            <span key={r} className="bg-blue-500/20 text-blue-400 border border-blue-500/30 text-[9px] px-1 rounded font-bold uppercase">{r}</span>
+                          ))}
+                        </div>
+                      )}
+                      {z.accessTags && (
+                        <div className="flex flex-wrap gap-1">
+                          {z.accessTags.split(',').filter(Boolean).map(t => (
+                            <span key={t} className="bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[9px] px-1 rounded font-bold uppercase">{t}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-status-ok text-[10px] font-semibold border-t border-panel-border/40 pt-1">🔓 Otwarta strefa</div>
+                  )}
+                </div>
+              </Popup>
+            </Polygon>
+          );
+        })}
+
+        {/* Render active zone drawing polygon */}
+        {isDrawingZone && zoneDrawingPoints.length > 0 && (
+          <>
+            {zoneDrawingPoints.length >= 3 && (
+              <Polygon
+                positions={zoneDrawingPoints}
+                pathOptions={{
+                  color: "#a855f7", // purple
+                  fillColor: "#a855f7",
+                  fillOpacity: 0.2,
+                  weight: 2.5,
+                  dashArray: "5, 5",
+                }}
+              />
+            )}
+            {zoneDrawingPoints.map((pt, idx) => (
+              <Marker
+                key={`zone-draw-vertex-${idx}`}
+                position={pt}
+                draggable={true}
+                eventHandlers={{
+                  dragend: (e) => {
+                    const target = e.target;
+                    if (target) {
+                      const latLng = target.getLatLng();
+                      onUpdateZoneDrawingPoint?.(idx, latLng.lat, latLng.lng);
+                    }
+                  }
+                }}
+                icon={getVertexIcon("#a855f7")}
+              />
+            ))}
+          </>
+        )}
+
+        {/* Render active zone being edited polygon */}
+        {activeZoneId && editingZonePoints.length > 0 && (
+          <>
+            {editingZonePoints.length >= 3 && (
+              <Polygon
+                positions={editingZonePoints}
+                pathOptions={{
+                  color: zones.find(z => z.id === activeZoneId)?.color || "#ec4899", // pink
+                  fillColor: zones.find(z => z.id === activeZoneId)?.color || "#ec4899",
+                  fillOpacity: 0.3,
+                  weight: 3,
+                }}
+              />
+            )}
+            {editingZonePoints.map((pt, idx) => (
+              <Marker
+                key={`zone-edit-vertex-${idx}`}
+                position={pt}
+                draggable={true}
+                eventHandlers={{
+                  dragend: (e) => {
+                    const target = e.target;
+                    if (target) {
+                      const latLng = target.getLatLng();
+                      onUpdateEditingZonePoint?.(idx, latLng.lat, latLng.lng);
+                    }
+                  }
+                }}
+                icon={getVertexIcon(zones.find(z => z.id === activeZoneId)?.color || "#ec4899")}
+              />
+            ))}
+          </>
+        )}
 
         {/* Strategic Points */}
         {strategicPoints.map((pt) => {
