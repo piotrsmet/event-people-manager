@@ -20,7 +20,7 @@ interface DashboardTabsProps {
   onUpdateEvent: (updatedEvent: EventResponse) => void;
 }
 
-type TabType = "map" | "zones" | "team" | "invites" | "incidents" | "territory";
+type TabType = "map" | "team" | "invites" | "incidents" | "territory";
 
 export default function DashboardTabs({ eventId, token, onRefreshStats, activeEvent, onUpdateEvent }: DashboardTabsProps) {
   const [activeTab, setActiveTab] = useState<TabType>("map");
@@ -35,9 +35,6 @@ export default function DashboardTabs({ eventId, token, onRefreshStats, activeEv
   const [incidents, setIncidents] = useState<IncidentResponse[]>([]);
 
   // Form states
-  const [newZoneName, setNewZoneName] = useState("");
-  const [newZoneDesc, setNewZoneDesc] = useState("");
-  const [newZoneCapacity, setNewZoneCapacity] = useState("");
 
   const [newInviteRole, setNewInviteRole] = useState<"VOLUNTEER" | "SECURITY" | "COORDINATOR">("VOLUNTEER");
   const [newInviteMaxUses, setNewInviteMaxUses] = useState("");
@@ -63,7 +60,7 @@ export default function DashboardTabs({ eventId, token, onRefreshStats, activeEv
     setLoading(true);
     setError(null);
     try {
-      if (activeTab === "zones" || activeTab === "territory") {
+      if (activeTab === "territory") {
         const res = await getZones(eventId);
         if (res.success && res.data) setZones(res.data);
         else setError(res.error || "Błąd pobierania stref");
@@ -85,42 +82,6 @@ export default function DashboardTabs({ eventId, token, onRefreshStats, activeEv
     } finally {
       setLoading(false);
     }
-  }
-
-  // Zone actions
-  async function handleCreateZone(e: React.FormEvent) {
-    e.preventDefault();
-    if (!newZoneName.trim()) return;
-
-    setError(null);
-    const capacityNum = newZoneCapacity ? parseInt(newZoneCapacity) : undefined;
-    const res = await createZone(eventId, {
-      name: newZoneName,
-      description: newZoneDesc,
-      capacity: capacityNum,
-    });
-
-    if (res.success && res.data) {
-      setZones((prev) => [...prev, res.data!]);
-      setNewZoneName("");
-      setNewZoneDesc("");
-      setNewZoneCapacity("");
-      onRefreshStats();
-    } else {
-      setError(res.error || "Błąd tworzenia strefy");
-    }
-  }
-
-  async function handleDeleteZone(zoneId: string) {
-    setActionLoading(zoneId);
-    const res = await deleteZone(zoneId);
-    if (res.success) {
-      setZones((prev) => prev.filter((z) => z.id !== zoneId));
-      onRefreshStats();
-    } else {
-      setError(res.error || "Błąd usuwania strefy");
-    }
-    setActionLoading(null);
   }
 
   // Team actions
@@ -223,16 +184,6 @@ export default function DashboardTabs({ eventId, token, onRefreshStats, activeEv
           }`}
         >
           🚨 Incydenty
-        </button>
-        <button
-          onClick={() => setActiveTab("zones")}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-all duration-200 ${
-            activeTab === "zones"
-              ? "border-primary-blue text-text-main"
-              : "border-transparent text-text-muted hover:text-text-main"
-          }`}
-        >
-          📍 Strefy i Obszary
         </button>
         <button
           onClick={() => setActiveTab("team")}
@@ -368,81 +319,6 @@ export default function DashboardTabs({ eventId, token, onRefreshStats, activeEv
               </div>
             )}
 
-            {/* 3. Zones Tab */}
-            {activeTab === "zones" && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Zone list */}
-                <div className="dashboard-panel p-6 md:col-span-2 space-y-4">
-                  <h3 className="text-lg font-medium text-text-main mb-4">Zdefiniowane Strefy</h3>
-                  {zones.length === 0 ? (
-                    <p className="text-sm text-text-muted text-center py-6">
-                      Brak zdefiniowanych stref bezpieczeństwa. Utwórz strefę w panelu obok.
-                    </p>
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {zones.map((z) => (
-                        <div key={z.id} className="p-4 border border-panel-border rounded-lg bg-panel-bg/40 flex justify-between items-start">
-                          <div>
-                            <h4 className="font-semibold text-text-main">{z.name}</h4>
-                            <p className="text-xs text-text-muted mt-1">{z.description || "Brak opisu"}</p>
-                            <span className="inline-block mt-2 text-xs bg-panel-border px-2 py-0.5 rounded text-text-muted font-medium">
-                              Pojemność: {z.capacity || "nielimitowana"}
-                            </span>
-                          </div>
-                          <button
-                            onClick={() => handleDeleteZone(z.id)}
-                            disabled={actionLoading === z.id}
-                            className="text-danger-red hover:underline text-xs"
-                          >
-                            Usuń
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Create zone form */}
-                <div className="dashboard-panel p-6 flex flex-col space-y-4">
-                  <h3 className="text-lg font-medium text-text-main">Nowa Strefa</h3>
-                  <form onSubmit={handleCreateZone} className="space-y-4">
-                    <div className="space-y-1">
-                      <label className="text-xs text-text-muted font-medium">Nazwa strefy</label>
-                      <input
-                        type="text"
-                        required
-                        value={newZoneName}
-                        onChange={(e) => setNewZoneName(e.target.value)}
-                        className="w-full px-3 py-2 bg-dashboard-bg border border-panel-border rounded text-text-main text-sm focus:outline-none focus:border-primary-blue"
-                        placeholder="np. Brama Główna"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs text-text-muted font-medium">Opis obszaru</label>
-                      <textarea
-                        value={newZoneDesc}
-                        onChange={(e) => setNewZoneDesc(e.target.value)}
-                        className="w-full px-3 py-2 bg-dashboard-bg border border-panel-border rounded text-text-main text-sm focus:outline-none focus:border-primary-blue"
-                        placeholder="Opis strefy lub jej zadań..."
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs text-text-muted font-medium">Maks. pojemność (opcjonalnie)</label>
-                      <input
-                        type="number"
-                        value={newZoneCapacity}
-                        onChange={(e) => setNewZoneCapacity(e.target.value)}
-                        className="w-full px-3 py-2 bg-dashboard-bg border border-panel-border rounded text-text-main text-sm focus:outline-none focus:border-primary-blue"
-                        placeholder="np. 200"
-                      />
-                    </div>
-                    <button type="submit" className="btn-primary w-full mt-2">
-                      + Dodaj Strefę
-                    </button>
-                  </form>
-                </div>
-              </div>
-            )}
 
             {/* 4. Team Tab */}
             {activeTab === "team" && (

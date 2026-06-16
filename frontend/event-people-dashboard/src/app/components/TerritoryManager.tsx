@@ -99,6 +99,8 @@ export default function TerritoryManager({
   const [zoneFormRoles, setZoneFormRoles] = useState<string[]>([]);
   const [zoneFormTags, setZoneFormTags] = useState<string[]>([]);
   const [savingZone, setSavingZone] = useState(false);
+  const [roleInput, setRoleInput] = useState("");
+  const [tagInput, setTagInput] = useState("");
 
   // Indoor click target ratios
   const [pendingCoordinates, setPendingCoordinates] = useState<{
@@ -422,17 +424,29 @@ export default function TerritoryManager({
     }
   }
 
-  // Handle toggling of roles and tags in form
-  const handleRoleToggle = (role: string) => {
-    setZoneFormRoles((prev) =>
-      prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role]
-    );
+  // Handle custom roles and tags additions/deletions in form
+  const handleAddRole = () => {
+    const val = roleInput.trim().toUpperCase();
+    if (val && !zoneFormRoles.includes(val)) {
+      setZoneFormRoles((prev) => [...prev, val]);
+    }
+    setRoleInput("");
   };
 
-  const handleTagToggle = (tag: string) => {
-    setZoneFormTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
-    );
+  const handleRemoveRole = (role: string) => {
+    setZoneFormRoles((prev) => prev.filter((r) => r !== role));
+  };
+
+  const handleAddTag = () => {
+    const val = tagInput.trim().toUpperCase();
+    if (val && !zoneFormTags.includes(val)) {
+      setZoneFormTags((prev) => [...prev, val]);
+    }
+    setTagInput("");
+  };
+
+  const handleRemoveTag = (tag: string) => {
+    setZoneFormTags((prev) => prev.filter((t) => t !== tag));
   };
 
   // Create strategic point
@@ -944,48 +958,142 @@ export default function TerritoryManager({
                 <div className="space-y-4 border-t md:border-t-0 md:border-l border-panel-border/50 md:pl-4">
                   <h4 className="text-xs font-bold text-text-muted uppercase tracking-wider">Kontrola Dostępu (ACL)</h4>
                   <p className="text-[10px] text-text-muted italic">
-                    Strefa jest otwarta dla każdego, dopóki nie zaznaczysz poniższych opcji. Zaznaczenie ograniczy wstęp tylko do wybranych ról lub tagów.
+                    Strefa jest otwarta dla każdego, dopóki nie dodasz poniższych reguł. Dodanie ograniczy wstęp tylko do wybranych ról lub tagów.
                   </p>
 
-                  {/* Roles */}
-                  <div className="space-y-2">
-                    <span className="text-[11px] font-bold text-primary-blue">Role Pracownicze</span>
-                    <div className="space-y-1.5">
-                      {SYSTEM_ROLES.map((r) => {
-                        const checked = zoneFormRoles.includes(r);
-                        return (
-                          <label key={r} className="flex items-center space-x-2 text-xs cursor-pointer group text-text-muted hover:text-text-main">
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={() => handleRoleToggle(r)}
-                              className="rounded bg-dashboard-bg border-panel-border text-primary-blue focus:ring-primary-blue/30"
-                            />
-                            <span className={checked ? "text-text-main font-semibold" : ""}>{r}</span>
-                          </label>
-                        );
-                      })}
+                  {/* Custom Roles input */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-primary-blue">Role Pracownicze (Wpisz i dodaj)</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={roleInput}
+                        onChange={(e) => setRoleInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleAddRole();
+                          }
+                        }}
+                        className="flex-1 px-3 py-1.5 bg-dashboard-bg border border-panel-border rounded text-text-main text-xs focus:outline-none focus:border-primary-blue"
+                        placeholder="np. COORDINATOR, KIEROWCA"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddRole}
+                        className="px-3 py-1 bg-primary-blue text-white rounded text-xs font-semibold hover:bg-blue-600 transition-colors"
+                      >
+                        Dodaj
+                      </button>
+                    </div>
+                    
+                    {/* Role Suggestion Helpers */}
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      <span className="text-[9px] text-text-muted mr-1">Sugestie:</span>
+                      {SYSTEM_ROLES.map(r => (
+                        <button
+                          key={r}
+                          type="button"
+                          onClick={() => {
+                            if (!zoneFormRoles.includes(r)) {
+                              setZoneFormRoles(prev => [...prev, r]);
+                            }
+                          }}
+                          className="text-[9px] bg-panel-border hover:bg-panel-border/80 text-text-muted px-1.5 py-0.5 rounded font-mono"
+                        >
+                          +{r}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5 mt-2 min-h-[24px]">
+                      {zoneFormRoles.length === 0 ? (
+                        <span className="text-[10px] text-text-muted italic">Brak ograniczeń ról (wszyscy mają wstęp)</span>
+                      ) : (
+                        zoneFormRoles.map((r) => (
+                          <span
+                            key={r}
+                            className="bg-blue-500/15 text-blue-400 border border-blue-500/25 px-2 py-0.5 rounded text-[10px] font-bold flex items-center space-x-1"
+                          >
+                            <span>{r}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveRole(r)}
+                              className="text-blue-400 hover:text-white font-bold text-xs"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))
+                      )}
                     </div>
                   </div>
 
-                  {/* Tags */}
-                  <div className="space-y-2 pt-2 border-t border-panel-border/30">
-                    <span className="text-[11px] font-bold text-amber-500">Kategorie Przepustek (Goście)</span>
-                    <div className="grid grid-cols-2 gap-1.5">
-                      {ACCESS_TAGS.map((t) => {
-                        const checked = zoneFormTags.includes(t);
-                        return (
-                          <label key={t} className="flex items-center space-x-2 text-xs cursor-pointer group text-text-muted hover:text-text-main">
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={() => handleTagToggle(t)}
-                              className="rounded bg-dashboard-bg border-panel-border text-amber-500 focus:ring-amber-500/30"
-                            />
-                            <span className={checked ? "text-text-main font-semibold" : ""}>{t}</span>
-                          </label>
-                        );
-                      })}
+                  {/* Custom Tags input */}
+                  <div className="space-y-1.5 pt-2.5 border-t border-panel-border/30">
+                    <label className="text-xs font-semibold text-amber-500">Kategorie Przepustek (Wpisz i dodaj)</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={tagInput}
+                        onChange={(e) => setTagInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleAddTag();
+                          }
+                        }}
+                        className="flex-1 px-3 py-1.5 bg-dashboard-bg border border-panel-border rounded text-text-main text-xs focus:outline-none focus:border-amber-500"
+                        placeholder="np. VIP, PRESS, ARTIST"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddTag}
+                        className="px-3 py-1 bg-amber-500 text-white rounded text-xs font-semibold hover:bg-amber-600 transition-colors"
+                      >
+                        Dodaj
+                      </button>
+                    </div>
+
+                    {/* Tag Suggestion Helpers */}
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      <span className="text-[9px] text-text-muted mr-1">Sugestie:</span>
+                      {ACCESS_TAGS.map(t => (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => {
+                            if (!zoneFormTags.includes(t)) {
+                              setZoneFormTags(prev => [...prev, t]);
+                            }
+                          }}
+                          className="text-[9px] bg-panel-border hover:bg-panel-border/80 text-text-muted px-1.5 py-0.5 rounded font-mono"
+                        >
+                          +{t}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5 mt-2 min-h-[24px]">
+                      {zoneFormTags.length === 0 ? (
+                        <span className="text-[10px] text-text-muted italic">Brak ograniczeń przepustek (wszyscy mają wstęp)</span>
+                      ) : (
+                        zoneFormTags.map((t) => (
+                          <span
+                            key={t}
+                            className="bg-amber-500/15 text-amber-400 border border-amber-500/25 px-2 py-0.5 rounded text-[10px] font-bold flex items-center space-x-1"
+                          >
+                            <span>{t}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveTag(t)}
+                              className="text-amber-400 hover:text-white font-bold text-xs"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))
+                      )}
                     </div>
                   </div>
                 </div>
