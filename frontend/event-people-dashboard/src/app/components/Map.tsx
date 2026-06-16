@@ -153,35 +153,63 @@ export default function Map({ locations, isConnected, boundaryGeoJson, strategic
                 }}
               >
                 <Popup className="custom-popup">
-                  <div className="p-1.5 space-y-1.5 text-text-main text-xs min-w-[150px]">
-                    <div className="font-bold text-sm flex items-center space-x-1.5" style={{ color: z.color || '#3b82f6' }}>
-                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: z.color || '#3b82f6' }}></span>
-                      <span>{z.name}</span>
+                  <div className="p-2 space-y-2.5 text-text-main text-xs min-w-[180px]">
+                    {/* Header */}
+                    <div className="flex items-center justify-between pb-1.5 border-b border-panel-border/30">
+                      <div className="font-bold text-sm flex items-center space-x-2">
+                        <span className="w-3 h-3 rounded-full border border-white/20 shadow-sm animate-pulse" style={{ backgroundColor: z.color || '#3b82f6' }}></span>
+                        <span className="truncate max-w-[140px] text-text-main">{z.name}</span>
+                      </div>
                     </div>
-                    {z.description && <div className="text-text-muted italic">{z.description}</div>}
-                    <div className="border-t border-panel-border/40 pt-1">
-                      Pojemność: <strong className="text-text-main">{z.capacity || "Nielimitowana"}</strong>
+
+                    {/* Description */}
+                    {z.description && (
+                      <p className="text-[10px] text-text-muted leading-relaxed italic bg-black/15 p-1.5 rounded border border-panel-border/10">
+                        {z.description}
+                      </p>
+                    )}
+
+                    {/* Capacity */}
+                    <div className="flex justify-between items-center bg-panel-bg/30 px-2 py-1 rounded border border-panel-border/20 text-[10px]">
+                      <span className="text-text-muted">Pojemność:</span>
+                      <strong className="text-text-main font-semibold">
+                        {z.capacity ? `${z.capacity} osób` : "Nielimitowana"}
+                      </strong>
                     </div>
+
+                    {/* Access Status / ACL */}
                     {(z.allowedRoles || z.accessTags) ? (
-                      <div className="space-y-1 border-t border-panel-border/40 pt-1">
-                        <div className="font-semibold text-[10px] text-text-muted uppercase tracking-wider">Dostęp:</div>
+                      <div className="space-y-1.5 bg-black/25 p-2 rounded border border-panel-border/25">
+                        <div className="flex items-center space-x-1 text-[10px] font-bold text-amber-500 uppercase tracking-wider">
+                          <span>🔒 Dostęp Ograniczony (ACL)</span>
+                        </div>
+                        
                         {z.allowedRoles && (
-                          <div className="flex flex-wrap gap-1">
-                            {z.allowedRoles.split(',').filter(Boolean).map(r => (
-                              <span key={r} className="bg-blue-500/20 text-blue-400 border border-blue-500/30 text-[9px] px-1 rounded font-bold uppercase">{r}</span>
-                            ))}
+                          <div className="space-y-1">
+                            <div className="text-[8px] text-text-muted font-semibold uppercase">Role pracowników:</div>
+                            <div className="flex flex-wrap gap-1">
+                              {z.allowedRoles.split(',').filter(Boolean).map(r => (
+                                <span key={r} className="bg-blue-500/20 text-blue-300 border border-blue-500/35 text-[9px] px-1.5 py-0.5 rounded font-mono font-bold uppercase">{r}</span>
+                              ))}
+                            </div>
                           </div>
                         )}
+                        
                         {z.accessTags && (
-                          <div className="flex flex-wrap gap-1">
-                            {z.accessTags.split(',').filter(Boolean).map(t => (
-                              <span key={t} className="bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[9px] px-1 rounded font-bold uppercase">{t}</span>
-                            ))}
+                          <div className="space-y-1 mt-1.5">
+                            <div className="text-[8px] text-text-muted font-semibold uppercase">Przepustki gości:</div>
+                            <div className="flex flex-wrap gap-1">
+                              {z.accessTags.split(',').filter(Boolean).map(t => (
+                                <span key={t} className="bg-amber-500/20 text-amber-300 border border-amber-500/35 text-[9px] px-1.5 py-0.5 rounded font-mono font-bold uppercase">{t}</span>
+                              ))}
+                            </div>
                           </div>
                         )}
                       </div>
                     ) : (
-                      <div className="text-status-ok text-[10px] font-semibold border-t border-panel-border/40 pt-1">🔓 Otwarta strefa</div>
+                      <div className="flex items-center justify-center space-x-1 py-1.5 bg-status-ok/10 text-status-ok border border-status-ok/20 rounded font-semibold text-[10px]">
+                        <span>🔓 Strefa otwarta dla wszystkich</span>
+                      </div>
                     )}
                   </div>
                 </Popup>
