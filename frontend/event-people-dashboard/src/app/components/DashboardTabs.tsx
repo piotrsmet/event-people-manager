@@ -34,6 +34,9 @@ export default function DashboardTabs({ eventId, token, onRefreshStats, activeEv
   const [invites, setInvites] = useState<InviteTokenResponse[]>([]);
   const [incidents, setIncidents] = useState<IncidentResponse[]>([]);
 
+  // Badge — open incident count
+  const [openIncidentCount, setOpenIncidentCount] = useState(0);
+
   // Form states
 
   const [newInviteRole, setNewInviteRole] = useState<"VOLUNTEER" | "SECURITY" | "COORDINATOR">("VOLUNTEER");
@@ -50,6 +53,42 @@ export default function DashboardTabs({ eventId, token, onRefreshStats, activeEv
     }
     loadMembers();
   }, [eventId]);
+
+  // Global polling for open incident count badge (runs regardless of active tab)
+  useEffect(() => {
+    async function pollIncidentCount() {
+      try {
+        const res = await getIncidents(eventId, 0, 100);
+        if (res.success && res.data) {
+          const openCount = res.data.content.filter(
+            (i) => i.status === "OPEN" || i.status === "IN_PROGRESS"
+          ).length;
+          setOpenIncidentCount(openCount);
+        }
+      } catch (_) { /* ignore */ }
+    }
+    pollIncidentCount();
+    const interval = setInterval(pollIncidentCount, 15000);
+    return () => clearInterval(interval);
+  }, [eventId]);
+
+  // Auto-polling when on incidents tab (refresh every 10s)
+  useEffect(() => {
+    if (activeTab !== "incidents") return;
+    const interval = setInterval(async () => {
+      try {
+        const res = await getIncidents(eventId, 0, 50);
+        if (res.success && res.data) {
+          setIncidents(res.data.content);
+          const openCount = res.data.content.filter(
+            (i) => i.status === "OPEN" || i.status === "IN_PROGRESS"
+          ).length;
+          setOpenIncidentCount(openCount);
+        }
+      } catch (_) { /* ignore */ }
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [eventId, activeTab]);
 
   useEffect(() => {
     fetchTabData();
@@ -177,13 +216,18 @@ export default function DashboardTabs({ eventId, token, onRefreshStats, activeEv
         </button>
         <button
           onClick={() => setActiveTab("incidents")}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-all duration-200 ${
+          className={`relative px-4 py-2 text-sm font-medium border-b-2 transition-all duration-200 ${
             activeTab === "incidents"
               ? "border-primary-blue text-text-main"
               : "border-transparent text-text-muted hover:text-text-main"
           }`}
         >
           🚨 Incydenty
+          {openIncidentCount > 0 && (
+            <span className="absolute -top-1 -right-1 bg-danger-red text-white text-[10px] font-bold min-w-[18px] h-[18px] rounded-full flex items-center justify-center px-1 shadow-lg shadow-red-500/30 animate-pulse">
+              {openIncidentCount}
+            </span>
+          )}
         </button>
         <button
           onClick={() => setActiveTab("team")}
