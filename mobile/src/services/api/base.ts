@@ -4,8 +4,8 @@ import * as SecureStore from "expo-secure-store";
 // Na emulatorze Android localhost to 10.0.2.2. Na iOS/web to localhost.
 // W przypadku testów na fizycznym telefonie zmień ten adres na IP swojego komputera w sieci lokalnej (np. "http://192.168.1.100:8080/api/v1").
 export const BASE_URL = Platform.select({
-  android: "https://817e04f33a5618.lhr.life/api/v1",
-  default: "https://817e04f33a5618.lhr.life/api/v1",
+  android: "http://localhost:8080/api/v1",
+  default: "http://localhost:8080/api/v1",
 });
 
 export async function getHeaders() {
@@ -57,11 +57,16 @@ export interface ZoneResponse {
 export interface ShiftResponse {
   id: string;
   userId: string;
+  username: string;
+  zoneId?: string | null;
+  zoneName?: string | null;
+  strategicPointId?: string | null;
+  strategicPointName?: string | null;
   eventId: string;
-  zoneId?: string;
   startTime: string;
   endTime?: string;
   status: string;
+  createdAt?: string;
 }
 
 export interface IncidentResponse {

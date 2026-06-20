@@ -58,4 +58,16 @@ public class ShiftController {
         var shifts = shiftService.getActiveShiftsForEvent(eventId);
         return ResponseEntity.ok(shifts.stream().map(responseMapper::toShiftResponse).toList());
     }
+
+    @PutMapping("/events/{eventId}/shifts/{shiftId}/assign")
+    @PreAuthorize("@eventSecurity.hasEventRole(#eventId, 'COORDINATOR')")
+    public ResponseEntity<ShiftResponse> assignShift(
+            @PathVariable UUID eventId,
+            @PathVariable UUID shiftId,
+            @RequestParam(required = false) UUID zoneId,
+            @RequestParam(required = false) UUID strategicPointId
+    ) {
+        var shift = shiftService.assignShift(eventId, shiftId, zoneId, strategicPointId);
+        return ResponseEntity.ok(responseMapper.toShiftResponse(shift));
+    }
 }

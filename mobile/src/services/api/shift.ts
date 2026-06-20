@@ -30,4 +30,12 @@ export const shiftApi = {
     }
     return res.json();
   },
+
+  async getActiveShift(eventId: string, userId: string): Promise<ShiftResponse | null> {
+    const headers = await getHeaders();
+    const res = await fetch(`${BASE_URL}/events/${eventId}/shifts?userId=${userId}&status=IN_PROGRESS`, { headers });
+    if (!res.ok) throw new Error("Nie udało się pobrać aktywnej zmiany");
+    const data: ShiftResponse[] = await res.json();
+    return data.length > 0 ? data[0] : null;
+  },
 };

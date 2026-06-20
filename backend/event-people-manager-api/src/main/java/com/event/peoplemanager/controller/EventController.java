@@ -68,6 +68,16 @@ public class EventController {
         return ResponseEntity.ok(members.stream().map(responseMapper::toEventMemberResponse).toList());
     }
 
+    @GetMapping("/{eventId}/members/me")
+    @PreAuthorize("@eventSecurity.isEventMember(#eventId)")
+    public ResponseEntity<EventMemberResponse> getMyMemberDetails(
+            @PathVariable UUID eventId,
+            @AuthenticationPrincipal User currentUser
+    ) {
+        var member = eventService.getMemberDetails(eventId, currentUser.getId());
+        return ResponseEntity.ok(responseMapper.toEventMemberResponse(member));
+    }
+
     @PutMapping("/{eventId}/members/{userId}/role")
     @PreAuthorize("@eventSecurity.hasEventRole(#eventId, 'COORDINATOR')")
     public ResponseEntity<EventMemberResponse> updateMemberRole(
@@ -76,6 +86,17 @@ public class EventController {
             @RequestParam UserRole role
     ) {
         var updated = eventService.updateMemberRole(eventId, userId, role);
+        return ResponseEntity.ok(responseMapper.toEventMemberResponse(updated));
+    }
+
+    @PutMapping("/{eventId}/members/{userId}/custom-role")
+    @PreAuthorize("@eventSecurity.hasEventRole(#eventId, 'COORDINATOR')")
+    public ResponseEntity<EventMemberResponse> updateMemberCustomRole(
+            @PathVariable UUID eventId,
+            @PathVariable UUID userId,
+            @RequestParam(required = false) UUID customRoleId
+    ) {
+        var updated = eventService.updateMemberCustomRole(eventId, userId, customRoleId);
         return ResponseEntity.ok(responseMapper.toEventMemberResponse(updated));
     }
 

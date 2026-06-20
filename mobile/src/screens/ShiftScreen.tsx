@@ -14,7 +14,7 @@ import {
 } from "react-native";
 import * as Location from "expo-location";
 import { useAuth } from "../context/AuthContext";
-import { api, ZoneResponse } from "../services/api";
+import { api, ZoneResponse, StaffingRequestResponse, ShiftResponse } from "../services/api";
 import MapScreen from "./MapScreen";
 import ChatScreen from "./ChatScreen";
 
@@ -63,9 +63,17 @@ export default function ShiftScreen() {
   const [showMap, setShowMap] = useState(false);
   const [showChat, setShowChat] = useState(false);
 
+  // Własne role i zapotrzebowania
+  const [myMemberDetails, setMyMemberDetails] = useState<any>(null);
+  const [staffingRequests, setStaffingRequests] = useState<StaffingRequestResponse[]>([]);
+  const [activeShift, setActiveShift] = useState<ShiftResponse | null>(null);
+  const [loadingStaffing, setLoadingStaffing] = useState(false);
+  const [reactLoading, setReactLoading] = useState<string | null>(null);
+
   // Referencje do cykli
   const locationIntervalRef = useRef<any>(null);
   const timerIntervalRef = useRef<any>(null);
+  const dataIntervalRef = useRef<any>(null);
 
   // 1. Ładowanie stref przy wejściu na ekran
   useEffect(() => {
@@ -86,6 +94,53 @@ export default function ShiftScreen() {
       setLoadingZones(false);
     }
   };
+
+  // Ładowanie ról, zapotrzebowań i statusu aktywnej zmiany co 5 sekund
+  useEffect(() => {
+    if (!selectedEvent || !user) {
+      setMyMemberDetails(null);
+      setStaffingRequests([]);
+      setActiveShift(null);
+      return;
+    }
+
+    const loadData = async () => {
+      try {
+        const details = await api.getMemberDetails(selectedEvent.id);
+        setMyMemberDetails(details);
+      } catch (err) {
+        console.warn("Nie udało się pobrać uprawnień:", err);
+      }
+
+      try {
+        const reqs = await api.getStaffingRequests(selectedEvent.id);
+        setStaffingRequests(reqs.filter((r) => r.status === "OPEN"));
+      } catch (err) {
+        console.warn("Nie udało się pobrać zapotrzebowań:", err);
+      }
+
+      if (activeShiftId) {
+        try {
+          const shift = await api.getActiveShift(selectedEvent.id, user.id);
+          setActiveShift(shift);
+        } catch (err) {
+          console.warn("Nie udało się pobrać szczegółów zmiany:", err);
+        }
+      } else {
+        setActiveShift(null);
+      }
+    };
+
+    loadData();
+
+    dataIntervalRef.current = setInterval(() => {
+      loadData();
+    }, 5000);
+
+    return () => {
+      if (dataIntervalRef.current) clearInterval(dataIntervalRef.current);
+    };
+  }, [selectedEvent, activeShiftId, user]);
 
   // 2. Obsługa stopera
   useEffect(() => {
@@ -272,22 +327,50 @@ export default function ShiftScreen() {
     }
   };
 
-  const getActiveZoneName = () => {
-    if (!activeZoneId) return "Cały teren / Brak strefy";
-    const zone = zones.find((z) => z.id === activeZoneId);
-    return zone ? zone.name : "Strefa przypisana";
+  const handleReactToStaffingRequest = async (requestId: string) => {
+    if (!selectedEvent) return;
+    setReactLoading(requestId);
+    try {
+      await api.reactToStaffingRequest(selectedEvent.id, requestId);
+      Alert.alert("Sukces", "Zgłoszono gotowość do stacjonowania w wybranym miejscu!");
+      // Odświeżenie zapotrzebowań
+      const reqs = await api.getStaffingRequests(selectedEvent.id);
+      setStaffingRequests(reqs.filter((r) => r.status === "OPEN"));
+    } catch (err: any) {
+      Alert.alert("Błąd", err.message || "Nie udało się zapisać zgłoszenia");
+    } finally {
+      setReactLoading(null);
+    }
   };
 
-  if (showMap) {
-    return <MapScreen onClose={() => setShowMap(false)} />;
-  }
+  const getActiveAssignmentName = () => {
+    if (activeShift) {
+      if (activeShift.zoneId) {
+        return `Strefa: ${activeShift.zoneName}`;
+      } else if (activeShift.strategicPointId) {
+        return `Punkt: ${activeShift.strategicPointName}`;
+      }
+    }
+    if (activeZoneId) {
+      const zone = zones.find((z) => z.id === activeZoneId);
+      return zone ? `Strefa: ${zone.name}` : "Strefa przypisana";
+    }
+    return "Cały teren / Brak strefy";
+  };
 
-  if (showChat) {
-    return <ChatScreen onClose={() => setShowChat(false)} />;
-  }
+  const hasPermission = (permission: string) => {
+    if (user?.role === "COORDINATOR") return true;
+    if (!myMemberDetails) return true;
+    if (!myMemberDetails.permissions) return true;
+    return myMemberDetails.permissions.split(",").includes(permission);
+  };
 
-  return (
-    <SafeAreaView style={styles.container}>
+  const [activeTab, setActiveTab] = useState<"shift" | "map" | "chat" | "events">("shift");
+
+
+
+  const renderShiftTab = () => {
+    return (
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         {/* Top Navbar */}
         <View style={styles.header}>
@@ -295,67 +378,11 @@ export default function ShiftScreen() {
             <Text style={styles.username}>{user?.username}</Text>
             <Text style={styles.roleText}>Rola: {user?.role}</Text>
           </View>
-          <TouchableOpacity style={styles.signOutButton} onPress={signOut}>
-            <Text style={styles.signOutText}>Wyloguj</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Event Card */}
-        <View style={styles.eventCard}>
-          <View style={styles.eventCardHeader}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.eventLabel}>Aktywne Wydarzenie</Text>
-              <Text style={styles.eventName}>{selectedEvent?.name}</Text>
-            </View>
-            {activeShiftId ? (
-              <View style={styles.lockedBadge}>
-                <Text style={styles.lockedBadgeText}>🔒 W TRAKCIE PRACY</Text>
-              </View>
-            ) : null}
+          <View style={styles.eventLabelCapsule}>
+            <Text style={styles.eventLabelCapsuleText} numberOfLines={1}>
+              📍 {selectedEvent?.name}
+            </Text>
           </View>
-          <Text style={styles.eventDesc} numberOfLines={2}>
-            {selectedEvent?.description || "Brak opisu wydarzenia."}
-          </Text>
-          
-          <View style={styles.eventActionsRow}>
-            <TouchableOpacity
-              style={[
-                styles.eventCardBtn,
-                activeShiftId !== null && styles.eventCardBtnDisabled
-              ]}
-              disabled={activeShiftId !== null}
-              onPress={() => setChangeEventModalVisible(true)}
-            >
-              <Text style={styles.eventCardBtnText}>🔄 Zmień ({myEvents.length})</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.eventCardBtn,
-                activeShiftId !== null && styles.eventCardBtnDisabled
-              ]}
-              disabled={activeShiftId !== null}
-              onPress={() => setJoinEventModalVisible(true)}
-            >
-              <Text style={styles.eventCardBtnText}>➕ Dołącz kodem</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Map Button */}
-          <TouchableOpacity
-            style={styles.mapButton}
-            onPress={() => setShowMap(true)}
-          >
-            <Text style={styles.mapButtonText}>🗺️ Pokaż mapę wydarzenia</Text>
-          </TouchableOpacity>
-
-          {/* Chat Button */}
-          <TouchableOpacity
-            style={styles.chatButton}
-            onPress={() => setShowChat(true)}
-          >
-            <Text style={styles.chatButtonText}>💬 Otwórz czat wydarzenia</Text>
-          </TouchableOpacity>
         </View>
 
         {/* GPS Permission Warning */}
@@ -367,11 +394,11 @@ export default function ShiftScreen() {
           </View>
         )}
 
-        {/* Main Status Panel */}
+        {/* Status Panel */}
         {!activeShiftId ? (
           /* STAN: PRZED ROZPOCZĘCIEM PRACY */
           <View style={styles.statusPanel}>
-            <Text style={styles.panelTitle}>Rozpocznij pracę</Text>
+            <Text style={styles.panelTitle}>⏱️ Rozpocznij pracę</Text>
             <Text style={styles.panelSubtitle}>
               Wybierz strefę, w której będziesz stacjonować (opcjonalnie):
             </Text>
@@ -441,8 +468,8 @@ export default function ShiftScreen() {
               </View>
             </View>
 
-            <Text style={styles.activeZoneLabel}>Lokalizacja stacjonowania:</Text>
-            <Text style={styles.activeZoneValue}>{getActiveZoneName()}</Text>
+            <Text style={styles.activeZoneLabel}>Aktywny przydział:</Text>
+            <Text style={styles.activeZoneValue}>{getActiveAssignmentName()}</Text>
 
             {/* Timer Display */}
             <View style={styles.timerContainer}>
@@ -451,12 +478,14 @@ export default function ShiftScreen() {
             </View>
 
             {/* SOS Emergency Button */}
-            <TouchableOpacity
-              style={styles.sosButton}
-              onPress={() => setSosModalVisible(true)}
-            >
-              <Text style={styles.sosButtonText}>SOS / ZGŁOŚ ALERT</Text>
-            </TouchableOpacity>
+            {hasPermission("SEND_SOS") && (
+              <TouchableOpacity
+                style={styles.sosButton}
+                onPress={() => setSosModalVisible(true)}
+              >
+                <Text style={styles.sosButtonText}>🚨 SOS / ZGŁOŚ ALERT</Text>
+              </TouchableOpacity>
+            )}
 
             {/* Check-out Button */}
             <TouchableOpacity
@@ -472,7 +501,221 @@ export default function ShiftScreen() {
             </TouchableOpacity>
           </View>
         )}
+
+        {/* Zgłoszenia zapotrzebowania */}
+        <View style={styles.staffingContainer}>
+          <Text style={styles.sectionTitle}>🙋 Zgłoszenia zapotrzebowania</Text>
+          {loadingStaffing ? (
+            <ActivityIndicator color="#3B82F6" style={{ marginVertical: 10 }} />
+          ) : staffingRequests.length === 0 ? (
+            <Text style={styles.noStaffingRequests}>Brak otwartych zapotrzebowań w tym momencie.</Text>
+          ) : (
+            staffingRequests.map((req) => {
+              const targetName = req.zoneName 
+                ? `Strefa: ${req.zoneName}` 
+                : req.strategicPointName 
+                  ? `Punkt: ${req.strategicPointName}` 
+                  : "Cały teren";
+              
+              return (
+                <View key={req.id} style={styles.staffingRequestCard}>
+                  <View style={styles.staffingRequestHeader}>
+                    <Text style={styles.staffingRequestTarget} numberOfLines={1}>
+                      📍 {targetName}
+                    </Text>
+                    <Text style={styles.staffingRequestCount}>
+                      Potrzebne: {req.countNeeded} os.
+                    </Text>
+                  </View>
+                  {req.description && (
+                    <Text style={styles.staffingRequestDesc}>{req.description}</Text>
+                  )}
+                  
+                  {hasPermission("REACT_STAFFING") ? (
+                    req.userReacted ? (
+                      <View style={styles.reactedBadge}>
+                        <Text style={styles.reactedBadgeText}>✓ Zgłoszono gotowość</Text>
+                      </View>
+                    ) : (
+                      <TouchableOpacity
+                        style={styles.reactBtn}
+                        onPress={() => handleReactToStaffingRequest(req.id)}
+                        disabled={reactLoading === req.id}
+                      >
+                        {reactLoading === req.id ? (
+                          <ActivityIndicator color="#FFFFFF" size="small" />
+                        ) : (
+                          <Text style={styles.reactBtnText}>Zgłoś się</Text>
+                        )}
+                      </TouchableOpacity>
+                    )
+                  ) : (
+                    <View style={styles.noPermissionBadge}>
+                      <Text style={styles.noPermissionBadgeText}>Brak uprawnień do reagowania</Text>
+                    </View>
+                  )}
+                </View>
+              );
+            })
+          )}
+        </View>
       </ScrollView>
+    );
+  };
+
+  const renderEventsTab = () => {
+    return (
+      <ScrollView contentContainerStyle={styles.scrollContainer}>
+        {/* Profile Info Header */}
+        <View style={styles.profileCard}>
+          <View style={styles.profileAvatar}>
+            <Text style={styles.profileAvatarText}>
+              {user?.username ? user.username.substring(0, 2).toUpperCase() : "U"}
+            </Text>
+          </View>
+          <View style={styles.profileDetails}>
+            <Text style={styles.profileName}>{user?.username}</Text>
+            <Text style={styles.profileRole}>Rola: {user?.role}</Text>
+          </View>
+          <TouchableOpacity style={styles.tabSignOutButton} onPress={signOut}>
+            <Text style={styles.tabSignOutText}>Wyloguj</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Selected Event Details Card */}
+        <View style={styles.eventTabCard}>
+          <Text style={styles.eventTabSectionTitle}>📅 Aktywne wydarzenie</Text>
+          {selectedEvent ? (
+            <View style={styles.eventTabDetails}>
+              <Text style={styles.eventTabName}>{selectedEvent.name}</Text>
+              <Text style={styles.eventTabDesc}>
+                {selectedEvent.description || "Brak opisu wydarzenia."}
+              </Text>
+              <View style={styles.eventTabMetaRow}>
+                <Text style={styles.eventTabMeta}>
+                  👤 Właściciel: {selectedEvent.ownerUsername}
+                </Text>
+                <Text style={styles.eventTabMeta}>
+                  👥 Członkowie: {selectedEvent.memberCount}
+                </Text>
+              </View>
+              {activeShiftId && (
+                <View style={styles.eventTabWarning}>
+                  <Text style={styles.eventTabWarningText}>
+                    🔒 Pracujesz na zmianie. Zakończ ją, aby móc zmienić wydarzenie.
+                  </Text>
+                </View>
+              )}
+            </View>
+          ) : (
+            <Text style={styles.noEventText}>Nie wybrano żadnego wydarzenia. Wybierz z listy lub dołącz kodem poniżej.</Text>
+          )}
+        </View>
+
+        {/* Twoje Wydarzenia (Switch Events) list */}
+        <View style={styles.eventListContainer}>
+          <Text style={styles.eventTabSectionTitle}>🔄 Twoje wydarzenia ({myEvents.length})</Text>
+          {myEvents.length === 0 ? (
+            <Text style={styles.noEventsListItemText}>Nie bierzesz udziału w żadnym wydarzeniu.</Text>
+          ) : (
+            myEvents.map((evt) => {
+              const isSelected = selectedEvent?.id === evt.id;
+              return (
+                <TouchableOpacity
+                  key={evt.id}
+                  style={[
+                    styles.eventListItem,
+                    isSelected && styles.eventListItemSelected,
+                    activeShiftId !== null && styles.eventListItemDisabled,
+                  ]}
+                  disabled={activeShiftId !== null || isSelected}
+                  onPress={async () => {
+                    await selectEvent(evt);
+                  }}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={[
+                        styles.eventListItemText,
+                        isSelected && styles.eventListItemTextSelected,
+                      ]}
+                    >
+                      {evt.name}
+                    </Text>
+                    <Text style={styles.eventListItemSubText}>Status: Aktywne</Text>
+                  </View>
+                  {isSelected && <Text style={styles.activeCheckmark}>✓</Text>}
+                </TouchableOpacity>
+              );
+            })
+          )}
+        </View>
+
+        {/* Join Event Form */}
+        <View style={styles.joinTabCard}>
+          <Text style={styles.eventTabSectionTitle}>➕ Dołącz do nowego wydarzenia</Text>
+          <Text style={styles.joinTabSubtitle}>
+            Wpisz 6-znakowy kod zaproszenia, aby dołączyć do nowego zespołu.
+          </Text>
+
+          {joinError && (
+            <View style={[styles.errorContainer, { marginBottom: 15 }]}>
+              <Text style={styles.errorText}>{joinError}</Text>
+            </View>
+          )}
+
+          <View style={styles.joinInputRow}>
+            <TextInput
+              style={styles.joinTextInput}
+              placeholder="KOD123"
+              placeholderTextColor="#64748B"
+              value={inviteCode}
+              onChangeText={(text) => setInviteCode(text.toUpperCase())}
+              maxLength={6}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              editable={activeShiftId === null && !joiningEvent}
+            />
+            <TouchableOpacity
+              style={[
+                styles.joinBtn,
+                (activeShiftId !== null || inviteCode.trim().length !== 6 || joiningEvent) && styles.joinBtnDisabled,
+              ]}
+              onPress={handleJoinNewEvent}
+              disabled={activeShiftId !== null || inviteCode.trim().length !== 6 || joiningEvent}
+            >
+              {joiningEvent ? (
+                <ActivityIndicator color="#FFFFFF" size="small" />
+              ) : (
+                <Text style={styles.joinBtnText}>Dołącz</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </ScrollView>
+    );
+  };
+
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case "shift":
+        return renderShiftTab();
+      case "map":
+        return hasPermission("VIEW_MAP") ? <MapScreen /> : renderShiftTab();
+      case "chat":
+        return hasPermission("WRITE_CHAT") ? <ChatScreen /> : renderShiftTab();
+      case "events":
+        return renderEventsTab();
+      default:
+        return renderShiftTab();
+    }
+  };
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.tabContentContainer}>
+        {renderTabContent()}
+      </View>
 
       {/* SOS MODAL */}
       <Modal
@@ -556,119 +799,44 @@ export default function ShiftScreen() {
         </View>
       </Modal>
 
-      {/* CHANGE EVENT MODAL */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={changeEventModalVisible}
-        onRequestClose={() => setChangeEventModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitleBlue}>🔄 Wybierz wydarzenie</Text>
-            <Text style={styles.modalSubtitle}>
-              Przełącz się na inne wydarzenie, do którego jesteś przypisany.
-            </Text>
+      {/* Custom Bottom Tab Bar */}
+      <View style={styles.tabBar}>
+        <TouchableOpacity
+          style={[styles.tabBarItem, activeTab === "shift" && styles.tabBarItemActive]}
+          onPress={() => setActiveTab("shift")}
+        >
+          <Text style={[styles.tabBarIcon, activeTab === "shift" && styles.tabBarIconActive]}>⏱️</Text>
+          <Text style={[styles.tabBarText, activeTab === "shift" && styles.tabBarTextActive]}>Służba</Text>
+        </TouchableOpacity>
 
-            <ScrollView style={{ maxHeight: 200, marginBottom: 20 }}>
-              {myEvents.map((evt) => (
-                <TouchableOpacity
-                  key={evt.id}
-                  style={[
-                    styles.eventSelectOption,
-                    selectedEvent?.id === evt.id && styles.eventSelectOptionSelected,
-                  ]}
-                  onPress={async () => {
-                    await selectEvent(evt);
-                    setChangeEventModalVisible(false);
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.eventSelectOptionText,
-                      selectedEvent?.id === evt.id && styles.eventSelectOptionTextSelected,
-                    ]}
-                  >
-                    {evt.name}
-                  </Text>
-                  {selectedEvent?.id === evt.id && (
-                    <Text style={styles.activeCheckmark}>✓</Text>
-                  )}
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+        {hasPermission("VIEW_MAP") && (
+          <TouchableOpacity
+            style={[styles.tabBarItem, activeTab === "map" && styles.tabBarItemActive]}
+            onPress={() => setActiveTab("map")}
+          >
+            <Text style={[styles.tabBarIcon, activeTab === "map" && styles.tabBarIconActive]}>🗺️</Text>
+            <Text style={[styles.tabBarText, activeTab === "map" && styles.tabBarTextActive]}>Mapa</Text>
+          </TouchableOpacity>
+        )}
 
-            <TouchableOpacity
-              style={[styles.modalBtn, styles.modalBtnCancel, { width: "100%" }]}
-              onPress={() => setChangeEventModalVisible(false)}
-            >
-              <Text style={styles.modalBtnCancelText}>Zamknij</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+        {hasPermission("WRITE_CHAT") && (
+          <TouchableOpacity
+            style={[styles.tabBarItem, activeTab === "chat" && styles.tabBarItemActive]}
+            onPress={() => setActiveTab("chat")}
+          >
+            <Text style={[styles.tabBarIcon, activeTab === "chat" && styles.tabBarIconActive]}>💬</Text>
+            <Text style={[styles.tabBarText, activeTab === "chat" && styles.tabBarTextActive]}>Czat</Text>
+          </TouchableOpacity>
+        )}
 
-      {/* JOIN EVENT MODAL */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={joinEventModalVisible}
-        onRequestClose={() => {
-          if (!joiningEvent) setJoinEventModalVisible(false);
-        }}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitleGreen}>➕ Dołącz do wydarzenia</Text>
-            <Text style={styles.modalSubtitle}>
-              Wpisz 6-znakowy kod zaproszenia, aby dołączyć do nowego zespołu.
-            </Text>
-
-            {joinError && (
-              <View style={[styles.errorContainer, { marginBottom: 15 }]}>
-                <Text style={styles.errorText}>{joinError}</Text>
-              </View>
-            )}
-
-            <TextInput
-              style={[styles.modalInput, styles.codeModalInput]}
-              placeholder="np. ABC123"
-              placeholderTextColor="#64748B"
-              value={inviteCode}
-              onChangeText={(text) => setInviteCode(text.toUpperCase())}
-              maxLength={6}
-              autoCapitalize="characters"
-              autoCorrect={false}
-            />
-
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={[styles.modalBtn, styles.modalBtnCancel]}
-                onPress={() => {
-                  setJoinEventModalVisible(false);
-                  setInviteCode("");
-                  setJoinError(null);
-                }}
-                disabled={joiningEvent}
-              >
-                <Text style={styles.modalBtnCancelText}>Anuluj</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.modalBtn, styles.modalBtnJoin]}
-                onPress={handleJoinNewEvent}
-                disabled={joiningEvent}
-              >
-                {joiningEvent ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                ) : (
-                  <Text style={styles.modalBtnJoinText}>Dołącz</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+        <TouchableOpacity
+          style={[styles.tabBarItem, activeTab === "events" && styles.tabBarItemActive]}
+          onPress={() => setActiveTab("events")}
+        >
+          <Text style={[styles.tabBarIcon, activeTab === "events" && styles.tabBarIconActive]}>📅</Text>
+          <Text style={[styles.tabBarText, activeTab === "events" && styles.tabBarTextActive]}>Wydarzenia</Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
@@ -1150,5 +1318,389 @@ const styles = StyleSheet.create({
     color: "#34d399",
     fontSize: 14,
     fontWeight: "700",
+  },
+  // Tab Navigation styles
+  tabContentContainer: {
+    flex: 1,
+  },
+  tabBar: {
+    flexDirection: "row",
+    height: 60,
+    backgroundColor: "#1E293B", // slate 800
+    borderTopWidth: 1,
+    borderTopColor: "#334155", // slate 700
+    alignItems: "center",
+    justifyContent: "space-around",
+    paddingBottom: Platform.OS === "ios" ? 10 : 0,
+  },
+  tabBarItem: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    height: "100%",
+  },
+  tabBarItemActive: {
+    backgroundColor: "rgba(59, 130, 246, 0.05)",
+  },
+  tabBarIcon: {
+    fontSize: 18,
+    color: "#64748B",
+    marginBottom: 2,
+  },
+  tabBarIconActive: {
+    fontSize: 20,
+    color: "#3B82F6",
+  },
+  tabBarText: {
+    fontSize: 10,
+    color: "#64748B",
+    fontWeight: "700",
+  },
+  tabBarTextActive: {
+    color: "#3B82F6",
+  },
+  eventLabelCapsule: {
+    backgroundColor: "rgba(59, 130, 246, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(59, 130, 246, 0.25)",
+    borderRadius: 16,
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    maxWidth: "60%",
+  },
+  eventLabelCapsuleText: {
+    color: "#60A5FA",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  shortcutsContainer: {
+    marginTop: 20,
+    backgroundColor: "#1E293B",
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#334155",
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#F8FAFC",
+    marginBottom: 12,
+  },
+  shortcutBtn: {
+    backgroundColor: "#0F172A",
+    borderRadius: 8,
+    paddingVertical: 12,
+    width: "48%",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#334155",
+  },
+  shortcutBtnText: {
+    color: "#F8FAFC",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  profileCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#1E293B",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "#334155",
+  },
+  profileAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#3B82F6",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 14,
+  },
+  profileAvatarText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "800",
+  },
+  profileDetails: {
+    flex: 1,
+  },
+  profileName: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#F8FAFC",
+  },
+  profileRole: {
+    fontSize: 12,
+    color: "#3B82F6",
+    fontWeight: "600",
+    marginTop: 2,
+  },
+  tabSignOutButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: "rgba(239, 68, 68, 0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(239, 68, 68, 0.25)",
+    borderRadius: 8,
+  },
+  tabSignOutText: {
+    color: "#FCA5A5",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  eventTabCard: {
+    backgroundColor: "#1E293B",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "#334155",
+  },
+  eventTabSectionTitle: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#F8FAFC",
+    marginBottom: 12,
+  },
+  eventTabDetails: {
+    backgroundColor: "#0F172A",
+    borderRadius: 8,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#334155",
+  },
+  eventTabName: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#F8FAFC",
+    marginBottom: 6,
+  },
+  eventTabDesc: {
+    fontSize: 13,
+    color: "#94A3B8",
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  eventTabMetaRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    borderTopWidth: 1,
+    borderTopColor: "#334155",
+    paddingTop: 10,
+  },
+  eventTabMeta: {
+    fontSize: 11,
+    color: "#64748B",
+    fontWeight: "600",
+  },
+  eventTabWarning: {
+    marginTop: 12,
+    backgroundColor: "rgba(239, 68, 68, 0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(239, 68, 68, 0.25)",
+    borderRadius: 6,
+    padding: 10,
+  },
+  eventTabWarningText: {
+    color: "#FCA5A5",
+    fontSize: 11,
+    fontWeight: "600",
+    lineHeight: 16,
+    textAlign: "center",
+  },
+  noEventText: {
+    color: "#94A3B8",
+    fontSize: 13,
+    fontStyle: "italic",
+    textAlign: "center",
+    paddingVertical: 10,
+  },
+  eventListContainer: {
+    backgroundColor: "#1E293B",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "#334155",
+  },
+  eventListItem: {
+    backgroundColor: "#0F172A",
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "#334155",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  eventListItemSelected: {
+    borderColor: "#3B82F6",
+    backgroundColor: "rgba(59, 130, 246, 0.08)",
+  },
+  eventListItemDisabled: {
+    opacity: 0.5,
+  },
+  eventListItemText: {
+    color: "#94A3B8",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  eventListItemTextSelected: {
+    color: "#60A5FA",
+  },
+  eventListItemSubText: {
+    color: "#64748B",
+    fontSize: 11,
+    marginTop: 2,
+    fontWeight: "500",
+  },
+  noEventsListItemText: {
+    color: "#94A3B8",
+    fontSize: 13,
+    textAlign: "center",
+    fontStyle: "italic",
+    paddingVertical: 10,
+  },
+  joinTabCard: {
+    backgroundColor: "#1E293B",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: "#334155",
+  },
+  joinTabSubtitle: {
+    color: "#94A3B8",
+    fontSize: 12,
+    lineHeight: 16,
+    marginBottom: 14,
+  },
+  joinInputRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  joinTextInput: {
+    flex: 1,
+    backgroundColor: "#0F172A",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#334155",
+    color: "#F8FAFC",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 14,
+    marginRight: 10,
+    height: 46,
+    fontWeight: "600",
+  },
+  joinBtn: {
+    backgroundColor: "#10B981",
+    borderRadius: 8,
+    height: 46,
+    paddingHorizontal: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  joinBtnDisabled: {
+    backgroundColor: "#334155",
+    opacity: 0.6,
+  },
+  joinBtnText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  staffingContainer: {
+    marginTop: 20,
+    backgroundColor: "#1E293B",
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#334155",
+  },
+  noStaffingRequests: {
+    color: "#94A3B8",
+    fontSize: 13,
+    fontStyle: "italic",
+    textAlign: "center",
+    paddingVertical: 10,
+  },
+  staffingRequestCard: {
+    backgroundColor: "#0F172A",
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: "#334155",
+  },
+  staffingRequestHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  staffingRequestTarget: {
+    color: "#F8FAFC",
+    fontSize: 14,
+    fontWeight: "700",
+    maxWidth: "70%",
+  },
+  staffingRequestCount: {
+    color: "#3B82F6",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  staffingRequestDesc: {
+    color: "#94A3B8",
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 10,
+  },
+  reactBtn: {
+    backgroundColor: "#2563EB",
+    borderRadius: 6,
+    paddingVertical: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  reactBtnText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  reactedBadge: {
+    backgroundColor: "rgba(16, 185, 129, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(16, 185, 129, 0.35)",
+    borderRadius: 6,
+    paddingVertical: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  reactedBadgeText: {
+    color: "#34D399",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  noPermissionBadge: {
+    backgroundColor: "rgba(239, 68, 68, 0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(239, 68, 68, 0.25)",
+    borderRadius: 6,
+    paddingVertical: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  noPermissionBadgeText: {
+    color: "#FCA5A5",
+    fontSize: 12,
+    fontWeight: "600",
   },
 });

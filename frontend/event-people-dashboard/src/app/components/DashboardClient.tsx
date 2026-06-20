@@ -22,11 +22,24 @@ export default function DashboardClient({ initialEvents, token }: DashboardClien
   const [loadingStats, setLoadingStats] = useState(false);
 
   useEffect(() => {
-    if (selectedEventId) {
-      fetchStats(selectedEventId);
-    } else {
+    if (!selectedEventId) {
       setStats(null);
+      return;
     }
+
+    // Initial load
+    fetchStats(selectedEventId);
+
+    // Poll stats every 5 seconds in the background (quietly)
+    const interval = setInterval(() => {
+      getEventStats(selectedEventId).then((res) => {
+        if (res.success && res.data) {
+          setStats(res.data);
+        }
+      });
+    }, 5000);
+
+    return () => clearInterval(interval);
   }, [selectedEventId]);
 
   async function fetchStats(eventId: string) {

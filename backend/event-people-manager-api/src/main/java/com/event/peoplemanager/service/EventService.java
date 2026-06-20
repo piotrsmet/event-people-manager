@@ -3,11 +3,13 @@ package com.event.peoplemanager.service;
 import com.event.peoplemanager.domain.entity.Event;
 import com.event.peoplemanager.domain.entity.EventMember;
 import com.event.peoplemanager.domain.entity.User;
+import com.event.peoplemanager.domain.entity.CustomRole;
 import com.event.peoplemanager.domain.enums.EventStatus;
 import com.event.peoplemanager.domain.enums.UserRole;
 import com.event.peoplemanager.dto.CreateEventRequest;
 import com.event.peoplemanager.dto.UpdateEventRequest;
 import com.event.peoplemanager.exception.ResourceNotFoundException;
+import com.event.peoplemanager.repository.CustomRoleRepository;
 import com.event.peoplemanager.repository.EventMemberRepository;
 import com.event.peoplemanager.repository.EventRepository;
 import com.event.peoplemanager.repository.UserRepository;
@@ -25,6 +27,7 @@ public class EventService {
     private final EventRepository eventRepository;
     private final EventMemberRepository eventMemberRepository;
     private final UserRepository userRepository;
+    private final CustomRoleRepository customRoleRepository;
 
     @Transactional
     public Event createEvent(CreateEventRequest request, UUID ownerId) {
@@ -137,5 +140,29 @@ public class EventService {
                 .orElseThrow(() -> new ResourceNotFoundException("Member not found in event: " + eventId + " for user: " + userId));
 
         eventMemberRepository.delete(member);
+    }
+
+    @Transactional
+    public EventMember updateMemberCustomRole(UUID eventId, UUID userId, UUID customRoleId) {
+        EventMember member = eventMemberRepository.findByEventIdAndUserId(eventId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Member not found in event: " + eventId + " for user: " + userId));
+
+        if (customRoleId != null) {
+            CustomRole customRole = customRoleRepository.findById(customRoleId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Custom role not found: " + customRoleId));
+            if (!customRole.getEvent().getId().equals(eventId)) {
+                throw new IllegalArgumentException("Role does not belong to this event");
+            }
+            member.setCustomRole(customRole);
+        } else {
+            member.setCustomRole(null);
+        }
+
+        return eventMemberRepository.save(member);
+    }
+
+    public EventMember getMemberDetails(UUID eventId, UUID userId) {
+        return eventMemberRepository.findByEventIdAndUserId(eventId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Not a member of this event: " + eventId));
     }
 }

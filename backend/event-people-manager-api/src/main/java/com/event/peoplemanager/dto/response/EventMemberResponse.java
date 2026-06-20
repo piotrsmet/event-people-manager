@@ -10,5 +10,8 @@ public record EventMemberResponse(
         UUID userId,
         String username,
         UserRole role,
+        UUID customRoleId,
+        String customRoleName,
+        String permissions,
         ZonedDateTime joinedAt
 ) {}

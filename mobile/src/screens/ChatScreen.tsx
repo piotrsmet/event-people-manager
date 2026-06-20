@@ -33,10 +33,12 @@ if (typeof TextEncoder === "undefined") {
 
 if (typeof TextDecoder === "undefined") {
   class TextDecoder {
-    decode(arr: Uint8Array) {
+    decode(arr: any) {
+      if (!arr) return "";
+      const uint8 = arr instanceof Uint8Array ? arr : new Uint8Array(arr);
       let str = "";
-      for (let i = 0; i < arr.length; i++) {
-        str += String.fromCharCode(arr[i]);
+      for (let i = 0; i < uint8.length; i++) {
+        str += String.fromCharCode(uint8[i]);
       }
       return str;
     }
@@ -45,7 +47,7 @@ if (typeof TextDecoder === "undefined") {
 }
 
 interface ChatScreenProps {
-  onClose: () => void;
+  onClose?: () => void;
 }
 
 type TabType = "GENERAL" | "COORDINATORS";
@@ -116,15 +118,17 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
         Authorization: `Bearer ${token}`,
       },
       webSocketFactory: () => {
-        return new (WebSocket as any)(wsUrl, [], {
+        return new (WebSocket as any)(wsUrl, ["v10.stomp", "v11.stomp", "v12.stomp"], {
           headers: {
             "Bypass-Tunnel-Reminder": "true",
           },
         });
       },
       reconnectDelay: 5000,
-      heartbeatIncoming: 4000,
-      heartbeatOutgoing: 4000,
+      heartbeatIncoming: 0,
+      heartbeatOutgoing: 0,
+      forceBinaryWSFrames: true,
+      appendMissingNULLonIncoming: true,
       debug: (str) => {
         console.log("Mobile STOMP: " + str);
       },
@@ -256,9 +260,11 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={onClose}>
-          <Text style={styles.backButtonText}>⬅ Powrót</Text>
-        </TouchableOpacity>
+        {onClose && (
+          <TouchableOpacity style={styles.backButton} onPress={onClose}>
+            <Text style={styles.backButtonText}>⬅ Powrót</Text>
+          </TouchableOpacity>
+        )}
         <Text style={styles.headerTitle}>Czat Wydarzenia</Text>
         <View style={styles.connectionBadge}>
           <View

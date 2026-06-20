@@ -35,6 +35,10 @@ public class EventMember {
     @Builder.Default
     private UserRole role = UserRole.VOLUNTEER;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "custom_role_id")
+    private CustomRole customRole;
+
     @Column(name = "joined_at")
     @Builder.Default
     private ZonedDateTime joinedAt = ZonedDateTime.now();

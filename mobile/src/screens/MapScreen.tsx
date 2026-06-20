@@ -16,7 +16,7 @@ import { api, ZoneResponse } from "../services/api";
 import { StrategicPointResponse } from "../services/api/strategicPoint";
 
 interface MapScreenProps {
-  onClose: () => void;
+  onClose?: () => void;
 }
 
 export default function MapScreen({ onClose }: MapScreenProps) {
@@ -342,9 +342,11 @@ export default function MapScreen({ onClose }: MapScreenProps) {
     <SafeAreaView style={styles.container}>
       {/* Header Bar */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={onClose}>
-          <Text style={styles.backButtonText}>← Wróć</Text>
-        </TouchableOpacity>
+        {onClose && (
+          <TouchableOpacity style={styles.backButton} onPress={onClose}>
+            <Text style={styles.backButtonText}>← Wróć</Text>
+          </TouchableOpacity>
+        )}
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>🗺️ Mapa wydarzenia</Text>
           <Text style={styles.headerSubtitle} numberOfLines={1}>

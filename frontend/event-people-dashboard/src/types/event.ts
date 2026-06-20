@@ -28,5 +28,14 @@ export interface EventMemberResponse {
   userId: string;
   username: string;
   role: 'COORDINATOR' | 'SECURITY' | 'VOLUNTEER';
+  customRoleId: string | null;
+  customRoleName: string | null;
   joinedAt: string;
+}
+
+export interface CustomRoleResponse {
+  id: string;
+  eventId: string;
+  name: string;
+  permissions: string;
 }

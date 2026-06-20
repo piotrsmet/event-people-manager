@@ -2,7 +2,9 @@ package com.event.peoplemanager.dto.response;
 
 import com.event.peoplemanager.domain.entity.*;
 import com.event.peoplemanager.repository.EventMemberRepository;
+import com.event.peoplemanager.repository.StaffingResponseRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -10,6 +12,7 @@ import org.springframework.stereotype.Component;
 public class ResponseMapper {
 
     private final EventMemberRepository eventMemberRepository;
+    private final StaffingResponseRepository staffingResponseRepository;
 
     public UserResponse toUserResponse(User user) {
         return new UserResponse(
@@ -47,6 +50,8 @@ public class ResponseMapper {
                 shift.getUser().getUsername(),
                 shift.getZone() != null ? shift.getZone().getId() : null,
                 shift.getZone() != null ? shift.getZone().getName() : null,
+                shift.getStrategicPoint() != null ? shift.getStrategicPoint().getId() : null,
+                shift.getStrategicPoint() != null ? shift.getStrategicPoint().getName() : null,
                 shift.getEvent() != null ? shift.getEvent().getId() : null,
                 shift.getStartTime(),
                 shift.getEndTime(),
@@ -85,11 +90,20 @@ public class ResponseMapper {
     }
 
     public EventMemberResponse toEventMemberResponse(EventMember member) {
+        String perms = "";
+        if (member.getCustomRole() != null) {
+            perms = member.getCustomRole().getPermissions();
+        } else {
+            perms = "VIEW_MAP,WRITE_CHAT,SEND_SOS,REACT_STAFFING";
+        }
         return new EventMemberResponse(
                 member.getId(),
                 member.getUser().getId(),
                 member.getUser().getUsername(),
                 member.getRole(),
+                member.getCustomRole() != null ? member.getCustomRole().getId() : null,
+                member.getCustomRole() != null ? member.getCustomRole().getName() : null,
+                perms,
                 member.getJoinedAt()
         );
     }
@@ -148,6 +162,46 @@ public class ResponseMapper {
                 message.getChannel(),
                 message.getContent(),
                 message.getCreatedAt()
+        );
+    }
+
+    public CustomRoleResponse toCustomRoleResponse(CustomRole customRole) {
+        return new CustomRoleResponse(
+                customRole.getId(),
+                customRole.getEvent().getId(),
+                customRole.getName(),
+                customRole.getPermissions()
+        );
+    }
+
+    public StaffingRequestResponse toStaffingRequestResponse(StaffingRequest request) {
+        boolean reacted = false;
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof User user) {
+            reacted = staffingResponseRepository.existsByStaffingRequestIdAndUserId(request.getId(), user.getId());
+        }
+        return new StaffingRequestResponse(
+                request.getId(),
+                request.getEvent().getId(),
+                request.getZone() != null ? request.getZone().getId() : null,
+                request.getZone() != null ? request.getZone().getName() : null,
+                request.getStrategicPoint() != null ? request.getStrategicPoint().getId() : null,
+                request.getStrategicPoint() != null ? request.getStrategicPoint().getName() : null,
+                request.getCountNeeded(),
+                request.getDescription(),
+                request.getStatus(),
+                reacted,
+                request.getCreatedAt()
+        );
+    }
+
+    public StaffingResponseResponse toStaffingResponseResponse(StaffingResponse response) {
+        return new StaffingResponseResponse(
+                response.getId(),
+                response.getStaffingRequest().getId(),
+                response.getUser().getId(),
+                response.getUser().getUsername(),
+                response.getCreatedAt()
         );
     }
 }

@@ -7,6 +7,7 @@ import { locationApi } from "./location";
 import { incidentApi } from "./incident";
 import { strategicPointApi } from "./strategicPoint";
 import { chatApi } from "./chat";
+import { staffingApi } from "./staffing";
 
 export * from "./base";
 
@@ -20,8 +21,10 @@ export const api = {
   ...incidentApi,
   ...strategicPointApi,
   ...chatApi,
+  ...staffingApi,
 };
 export type { UserResponse, EventResponse, ZoneResponse, ShiftResponse, IncidentResponse } from "./base";
 export type { StrategicPointResponse } from "./strategicPoint";
 export type { ChatMessageResponse } from "./chat";
+export type { StaffingRequestResponse, StaffingResponseResponse } from "./staffing";
 

@@ -21,4 +21,11 @@ export const eventApi = {
     }
     return res.json();
   },
+
+  async getMemberDetails(eventId: string): Promise<any> {
+    const headers = await getHeaders();
+    const res = await fetch(`${BASE_URL}/events/${eventId}/members/me`, { headers });
+    if (!res.ok) throw new Error("Nie udało się pobrać danych członkostwa");
+    return res.json();
+  },
 };

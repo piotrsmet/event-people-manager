@@ -6,10 +6,27 @@ import { getZones, createZone, deleteZone } from "../actions/zone";
 import { getEventMembers, updateMemberRole, removeMember } from "../actions/event";
 import { getInvites, generateInvite, revokeInvite } from "../actions/invite";
 import { getIncidents, resolveIncident } from "../actions/incident";
+import {
+  getCustomRoles,
+  createCustomRole,
+  deleteCustomRole,
+  updateMemberCustomRole
+} from "../actions/customRole";
+import {
+  getStaffingRequests,
+  createStaffingRequest,
+  getStaffingResponses,
+  updateStaffingRequestStatus
+} from "../actions/staffing";
+import { getActiveShifts, assignShift } from "../actions/shift";
+import { getStrategicPoints } from "../actions/strategicPoint";
 import { ZoneResponse } from "../../types/zone";
-import { EventMemberResponse, EventResponse } from "../../types/event";
+import { EventMemberResponse, EventResponse, CustomRoleResponse } from "../../types/event";
 import { InviteTokenResponse } from "../../types/invite";
 import { IncidentResponse } from "../../types/incident";
+import { StaffingRequestResponse, StaffingResponseResponse } from "../../types/staffing";
+import { StrategicPointResponse } from "../../types/strategicPoint";
+import { ShiftResponse } from "../../types/shift";
 import TerritoryManager from "./TerritoryManager";
 import ChatManager from "./ChatManager";
 
@@ -21,7 +38,7 @@ interface DashboardTabsProps {
   onUpdateEvent: (updatedEvent: EventResponse) => void;
 }
 
-type TabType = "map" | "team" | "invites" | "incidents" | "territory" | "chat";
+type TabType = "map" | "team" | "invites" | "incidents" | "territory" | "chat" | "roles" | "staffing";
 
 export default function DashboardTabs({ eventId, token, onRefreshStats, activeEvent, onUpdateEvent }: DashboardTabsProps) {
   const [activeTab, setActiveTab] = useState<TabType>("map");
@@ -34,12 +51,27 @@ export default function DashboardTabs({ eventId, token, onRefreshStats, activeEv
   const [members, setMembers] = useState<EventMemberResponse[]>([]);
   const [invites, setInvites] = useState<InviteTokenResponse[]>([]);
   const [incidents, setIncidents] = useState<IncidentResponse[]>([]);
+  const [customRoles, setCustomRoles] = useState<CustomRoleResponse[]>([]);
+  const [staffingRequests, setStaffingRequests] = useState<StaffingRequestResponse[]>([]);
+  const [staffingResponses, setStaffingResponses] = useState<Record<string, StaffingResponseResponse[]>>({});
+  const [activeShifts, setActiveShifts] = useState<ShiftResponse[]>([]);
+  const [strategicPoints, setStrategicPoints] = useState<StrategicPointResponse[]>([]);
+
+  // Roles form states
+  const [newRoleName, setNewRoleName] = useState("");
+  const [newRolePerms, setNewRolePerms] = useState<string[]>([]);
+
+  // Staffing form states
+  const [staffingCount, setStaffingCount] = useState("1");
+  const [staffingType, setStaffingType] = useState<"zone" | "point">("zone");
+  const [staffingZoneId, setStaffingZoneId] = useState("");
+  const [staffingPointId, setStaffingPointId] = useState("");
+  const [staffingDescription, setStaffingDescription] = useState("");
 
   // Badge — open incident count
   const [openIncidentCount, setOpenIncidentCount] = useState(0);
 
   // Form states
-
   const [newInviteRole, setNewInviteRole] = useState<"VOLUNTEER" | "SECURITY" | "COORDINATOR">("VOLUNTEER");
   const [newInviteMaxUses, setNewInviteMaxUses] = useState("");
   const [newInviteExpiry, setNewInviteExpiry] = useState("");
@@ -108,6 +140,8 @@ export default function DashboardTabs({ eventId, token, onRefreshStats, activeEv
         const res = await getEventMembers(eventId);
         if (res.success && res.data) setMembers(res.data);
         else setError(res.error || "Błąd pobierania członków");
+        const crRes = await getCustomRoles(eventId);
+        if (crRes.success && crRes.data) setCustomRoles(crRes.data);
       } else if (activeTab === "invites") {
         const res = await getInvites(eventId);
         if (res.success && res.data) setInvites(res.data);
@@ -116,6 +150,38 @@ export default function DashboardTabs({ eventId, token, onRefreshStats, activeEv
         const res = await getIncidents(eventId, 0, 50);
         if (res.success && res.data) setIncidents(res.data.content);
         else setError(res.error || "Błąd pobierania incydentów");
+      } else if (activeTab === "roles") {
+        const crRes = await getCustomRoles(eventId);
+        if (crRes.success && crRes.data) setCustomRoles(crRes.data);
+        else setError(crRes.error || "Błąd pobierania ról");
+        const mRes = await getEventMembers(eventId);
+        if (mRes.success && mRes.data) setMembers(mRes.data);
+      } else if (activeTab === "staffing") {
+        const srRes = await getStaffingRequests(eventId);
+        if (srRes.success && srRes.data) {
+          setStaffingRequests(srRes.data);
+          const respMap: Record<string, StaffingResponseResponse[]> = {};
+          await Promise.all(
+            srRes.data.map(async (req) => {
+              const respRes = await getStaffingResponses(eventId, req.id);
+              if (respRes.success && respRes.data) {
+                respMap[req.id] = respRes.data;
+              }
+            })
+          );
+          setStaffingResponses(respMap);
+        } else {
+          setError(srRes.error || "Błąd pobierania zapotrzebowań");
+        }
+
+        const zRes = await getZones(eventId);
+        if (zRes.success && zRes.data) setZones(zRes.data);
+
+        const spRes = await getStrategicPoints(eventId);
+        if (spRes.success && spRes.data) setStrategicPoints(spRes.data);
+
+        const shRes = await getActiveShifts(eventId);
+        if (shRes.success && shRes.data) setActiveShifts(shRes.data);
       }
     } catch (err) {
       setError("Wystąpił nieoczekiwany błąd");
@@ -133,6 +199,109 @@ export default function DashboardTabs({ eventId, token, onRefreshStats, activeEv
     } else {
       setError(res.error || "Błąd zmiany roli");
     }
+    setActionLoading(null);
+  }
+
+  async function handleAssignCustomRole(userId: string, customRoleId: string | null) {
+    setActionLoading(userId);
+    const res = await updateMemberCustomRole(eventId, userId, customRoleId);
+    if (res.success) {
+      const mRes = await getEventMembers(eventId);
+      if (mRes.success && mRes.data) setMembers(mRes.data);
+    } else {
+      setError(res.error || "Błąd przypisywania własnej roli");
+    }
+    setActionLoading(null);
+  }
+
+  async function handleCreateCustomRole(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newRoleName.trim()) return;
+    setError(null);
+    const permsString = newRolePerms.join(",");
+    const res = await createCustomRole(eventId, newRoleName.trim(), permsString);
+    if (res.success && res.data) {
+      setCustomRoles((prev) => [...prev, res.data!]);
+      setNewRoleName("");
+      setNewRolePerms([]);
+    } else {
+      setError(res.error || "Błąd tworzenia roli");
+    }
+  }
+
+  async function handleDeleteCustomRole(roleId: string) {
+    if (!confirm("Czy na pewno chcesz usunąć tę rolę?")) return;
+    setActionLoading(roleId);
+    const res = await deleteCustomRole(eventId, roleId);
+    if (res.success) {
+      setCustomRoles((prev) => prev.filter((r) => r.id !== roleId));
+      const mRes = await getEventMembers(eventId);
+      if (mRes.success && mRes.data) setMembers(mRes.data);
+    } else {
+      setError(res.error || "Błąd usuwania roli");
+    }
+    setActionLoading(null);
+  }
+
+  async function handleCreateStaffingRequest(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    const count = parseInt(staffingCount);
+    if (isNaN(count) || count <= 0) {
+      setError("Wpisz poprawną liczbę potrzebnych osób.");
+      return;
+    }
+    const zoneId = staffingType === "zone" && staffingZoneId ? staffingZoneId : null;
+    const spId = staffingType === "point" && staffingPointId ? staffingPointId : null;
+
+    if (!zoneId && !spId) {
+      setError("Wybierz strefę lub punkt strategiczny.");
+      return;
+    }
+
+    const res = await createStaffingRequest(eventId, {
+      zoneId,
+      strategicPointId: spId,
+      countNeeded: count,
+      description: staffingDescription.trim(),
+    });
+
+    if (res.success && res.data) {
+      setStaffingRequests((prev) => [res.data!, ...prev]);
+      setStaffingCount("1");
+      setStaffingZoneId("");
+      setStaffingPointId("");
+      setStaffingDescription("");
+      // Fetch staffing data again to load responses map
+      fetchTabData();
+    } else {
+      setError(res.error || "Błąd zgłaszania zapotrzebowania");
+    }
+  }
+
+  async function handleCloseStaffingRequest(requestId: string) {
+    setActionLoading(requestId);
+    const res = await updateStaffingRequestStatus(eventId, requestId, "CLOSED");
+    if (res.success && res.data) {
+      setStaffingRequests((prev) =>
+        prev.map((r) => (r.id === requestId ? res.data! : r))
+      );
+    } else {
+      setError(res.error || "Błąd zamykania zapotrzebowania");
+    }
+    setActionLoading(null);
+  }
+
+  async function handleForcedShiftAssignment(shiftId: string, zoneId: string | null, pointId: string | null) {
+    setActionLoading(shiftId);
+    const res = await assignShift(eventId, shiftId, zoneId, pointId);
+    if (res.success && res.data) {
+      const shRes = await getActiveShifts(eventId);
+      if (shRes.success && shRes.data) setActiveShifts(shRes.data);
+    } else {
+      setError(res.error || "Błąd przymusowego przydzielania zmiany");
+    }
+    setActionLoading(shiftId); // clear loading after some time
     setActionLoading(null);
   }
 
@@ -259,6 +428,26 @@ export default function DashboardTabs({ eventId, token, onRefreshStats, activeEv
           }`}
         >
           💬 Czat
+        </button>
+        <button
+          onClick={() => setActiveTab("roles")}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-all duration-200 ${
+            activeTab === "roles"
+              ? "border-primary-blue text-text-main"
+              : "border-transparent text-text-muted hover:text-text-main"
+          }`}
+        >
+          ⚙️ Role i Uprawnienia
+        </button>
+        <button
+          onClick={() => setActiveTab("staffing")}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-all duration-200 ${
+            activeTab === "staffing"
+              ? "border-primary-blue text-text-main"
+              : "border-transparent text-text-muted hover:text-text-main"
+          }`}
+        >
+          📦 Zapotrzebowanie
         </button>
       </div>
 
@@ -390,6 +579,7 @@ export default function DashboardTabs({ eventId, token, onRefreshStats, activeEv
                         <tr className="border-b border-panel-border text-text-muted text-xs font-semibold uppercase">
                           <th className="pb-3">Login</th>
                           <th className="pb-3">Rola w projekcie</th>
+                          <th className="pb-3">Rola własna</th>
                           <th className="pb-3">Data dołączenia</th>
                           <th className="pb-3 text-right">Zarządzanie</th>
                         </tr>
@@ -408,6 +598,21 @@ export default function DashboardTabs({ eventId, token, onRefreshStats, activeEv
                                 <option value="VOLUNTEER">VOLUNTEER (Wolontariusz)</option>
                                 <option value="SECURITY">SECURITY (Ochrona)</option>
                                 <option value="COORDINATOR">COORDINATOR (Koordynator)</option>
+                              </select>
+                            </td>
+                            <td className="py-3">
+                              <select
+                                value={m.customRoleId || ""}
+                                onChange={(e) => handleAssignCustomRole(m.userId, e.target.value || null)}
+                                disabled={actionLoading === m.userId}
+                                className="px-2 py-1 bg-dashboard-bg border border-panel-border rounded text-xs text-text-main focus:outline-none"
+                              >
+                                <option value="">Brak roli własnej</option>
+                                {customRoles.map((cr) => (
+                                  <option key={cr.id} value={cr.id}>
+                                    {cr.name}
+                                  </option>
+                                ))}
                               </select>
                             </td>
                             <td className="py-3 text-text-muted text-xs">
@@ -531,6 +736,370 @@ export default function DashboardTabs({ eventId, token, onRefreshStats, activeEv
             {activeTab === "chat" && (
               <div className="p-6">
                 <ChatManager eventId={eventId} token={token} members={members} />
+              </div>
+            )}
+
+            {/* Custom Roles Tab */}
+            {activeTab === "roles" && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6">
+                {/* Custom Roles List */}
+                <div className="dashboard-panel p-6 md:col-span-2 space-y-4">
+                  <h3 className="text-lg font-medium text-text-main">Własne role w wydarzeniu</h3>
+                  {customRoles.length === 0 ? (
+                    <p className="text-sm text-text-muted text-center py-6">
+                      Nie utworzono jeszcze żadnej własnej roli dla tego wydarzenia.
+                    </p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="border-b border-panel-border text-text-muted text-xs font-semibold uppercase">
+                            <th className="pb-3">Nazwa roli</th>
+                            <th className="pb-3">Uprawnienia</th>
+                            <th className="pb-3 text-right">Akcje</th>
+                          </tr>
+                        </thead>
+                        <tbody className="text-sm text-text-main divide-y divide-panel-border/30">
+                          {customRoles.map((r) => (
+                            <tr key={r.id} className="hover:bg-panel-bg/40">
+                              <td className="py-3 font-semibold text-primary-blue">{r.name}</td>
+                              <td className="py-3 text-xs text-text-muted">
+                                {r.permissions.split(",").map((p) => {
+                                  switch(p) {
+                                    case "VIEW_MAP": return "🗺️ Mapa";
+                                    case "WRITE_CHAT": return "💬 Czat";
+                                    case "SEND_SOS": return "🚨 SOS";
+                                    case "REACT_STAFFING": return "📦 Zapotrzebowanie";
+                                    default: return p;
+                                  }
+                                }).join(", ") || "Brak uprawnień"}
+                              </td>
+                              <td className="py-3 text-right">
+                                <button
+                                  onClick={() => handleDeleteCustomRole(r.id)}
+                                  disabled={actionLoading === r.id}
+                                  className="text-xs text-danger-red hover:underline"
+                                >
+                                  {actionLoading === r.id ? "Usuwanie..." : "Usuń"}
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+                {/* Create Custom Role Form */}
+                <div className="dashboard-panel p-6 flex flex-col space-y-4">
+                  <h3 className="text-lg font-medium text-text-main">Stwórz nową rolę</h3>
+                  <form onSubmit={handleCreateCustomRole} className="space-y-4">
+                    <div className="space-y-1">
+                      <label className="text-xs text-text-muted font-medium">Nazwa roli</label>
+                      <input
+                        type="text"
+                        value={newRoleName}
+                        onChange={(e) => setNewRoleName(e.target.value)}
+                        className="w-full px-3 py-2 bg-dashboard-bg border border-panel-border rounded text-text-main text-sm focus:outline-none focus:border-primary-blue"
+                        placeholder="np. Sektor VIP, Dowódca"
+                        required
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs text-text-muted font-medium block">Uprawnienia roli</label>
+                      
+                      {[
+                        { id: "VIEW_MAP", label: "🗺️ Podgląd mapy wydarzenia" },
+                        { id: "WRITE_CHAT", label: "💬 Pisanie na czacie wydarzenia" },
+                        { id: "SEND_SOS", label: "🚨 Zgłaszanie alertów / SOS" },
+                        { id: "REACT_STAFFING", label: "📦 Reagowanie na zapotrzebowania" }
+                      ].map((item) => {
+                        const checked = newRolePerms.includes(item.id);
+                        return (
+                          <label key={item.id} className="flex items-center space-x-3 text-sm text-text-main cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => {
+                                if (checked) {
+                                  setNewRolePerms(newRolePerms.filter((p) => p !== item.id));
+                                } else {
+                                  setNewRolePerms([...newRolePerms, item.id]);
+                                }
+                              }}
+                              className="rounded border-panel-border text-primary-blue focus:ring-primary-blue"
+                            />
+                            <span>{item.label}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+
+                    <button type="submit" className="btn-primary w-full mt-2">
+                      ➕ Utwórz Rolę
+                    </button>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* Staffing Requests Tab */}
+            {activeTab === "staffing" && (
+              <div className="space-y-8 p-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* Staffing Requests List */}
+                  <div className="dashboard-panel p-6 md:col-span-2 space-y-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <h3 className="text-lg font-medium text-text-main">Zapotrzebowania na ludzi ({staffingRequests.length})</h3>
+                      <button onClick={fetchTabData} className="text-xs text-primary-blue hover:underline">
+                        🔄 Odśwież
+                      </button>
+                    </div>
+
+                    {staffingRequests.length === 0 ? (
+                      <p className="text-sm text-text-muted text-center py-6">
+                        Brak aktywnych zapotrzebowań.
+                      </p>
+                    ) : (
+                      <div className="space-y-4">
+                        {staffingRequests.map((req) => (
+                          <div key={req.id} className="p-4 bg-dashboard-bg/50 border border-panel-border rounded-lg space-y-3">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <span className="text-xs font-semibold text-text-muted block uppercase tracking-wider">
+                                  {req.zoneId ? "📍 STREFA" : "🗺️ PUNKT STRATEGICZNY"}
+                                </span>
+                                <h4 className="text-base font-bold text-text-main mt-0.5">
+                                  {req.zoneId ? req.zoneName : req.strategicPointName}
+                                </h4>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
+                                  req.status === 'OPEN' ? 'bg-primary-blue/20 text-primary-blue' : 'bg-text-muted/20 text-text-muted'
+                                }`}>
+                                  {req.status === 'OPEN' ? 'AKTYWNE' : 'ZAKOŃCZONE'}
+                                </span>
+                                <span className="bg-panel-border text-text-main font-bold text-xs px-2.5 py-1 rounded">
+                                  Zapotrzebowanie: {req.countNeeded} os.
+                                </span>
+                              </div>
+                            </div>
+
+                            {req.description && (
+                              <p className="text-sm text-text-muted bg-panel-bg/20 p-2.5 rounded border border-panel-border/30">
+                                {req.description}
+                              </p>
+                            )}
+
+                            {/* Volunteer list who reacted */}
+                            <div className="border-t border-panel-border/50 pt-2.5">
+                              <h5 className="text-xs font-semibold text-text-muted uppercase mb-1">
+                                Zgłoszeni podwładni ({staffingResponses[req.id]?.length || 0}):
+                              </h5>
+                              {staffingResponses[req.id]?.length > 0 ? (
+                                <div className="flex flex-wrap gap-2 pt-1">
+                                  {staffingResponses[req.id].map((resp) => (
+                                    <span key={resp.id} className="text-xs bg-status-ok/10 text-status-ok px-2.5 py-1 rounded-full border border-status-ok/30 font-medium">
+                                      👤 {resp.username}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-xs text-text-muted italic pt-0.5">Brak zgłoszeń do tego zadania.</p>
+                              )}
+                            </div>
+
+                            {req.status === "OPEN" && (
+                              <div className="flex justify-end pt-2">
+                                <button
+                                  onClick={() => handleCloseStaffingRequest(req.id)}
+                                  disabled={actionLoading === req.id}
+                                  className="px-3 py-1 bg-panel-border border border-panel-border text-text-main text-xs font-bold rounded hover:bg-dashboard-bg transition-colors"
+                                >
+                                  {actionLoading === req.id ? "Zamykanie..." : "Oznacz jako Zrealizowane"}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Create Request Form */}
+                  <div className="dashboard-panel p-6 flex flex-col space-y-4 h-fit">
+                    <h3 className="text-lg font-medium text-text-main">Zgłoś zapotrzebowanie</h3>
+                    <form onSubmit={handleCreateStaffingRequest} className="space-y-4">
+                      <div className="space-y-1">
+                        <label className="text-xs text-text-muted font-medium">Typ przypisania</label>
+                        <div className="flex bg-dashboard-bg p-1 rounded border border-panel-border">
+                          <button
+                            type="button"
+                            onClick={() => setStaffingType("zone")}
+                            className={`flex-1 py-1.5 text-xs font-bold rounded transition-all ${
+                              staffingType === "zone" ? "bg-panel-border text-text-main" : "text-text-muted"
+                            }`}
+                          >
+                            Strefa
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setStaffingType("point")}
+                            className={`flex-1 py-1.5 text-xs font-bold rounded transition-all ${
+                              staffingType === "point" ? "bg-panel-border text-text-main" : "text-text-muted"
+                            }`}
+                          >
+                            Punkt Strategiczny
+                          </button>
+                        </div>
+                      </div>
+
+                      {staffingType === "zone" ? (
+                        <div className="space-y-1">
+                          <label className="text-xs text-text-muted font-medium">Strefa</label>
+                          <select
+                            value={staffingZoneId}
+                            onChange={(e) => setStaffingZoneId(e.target.value)}
+                            className="w-full px-3 py-2 bg-dashboard-bg border border-panel-border rounded text-text-main text-sm focus:outline-none focus:border-primary-blue"
+                            required
+                          >
+                            <option value="">-- Wybierz strefę --</option>
+                            {zones.map((z) => (
+                              <option key={z.id} value={z.id}>{z.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          <label className="text-xs text-text-muted font-medium">Punkt strategiczny</label>
+                          <select
+                            value={staffingPointId}
+                            onChange={(e) => setStaffingPointId(e.target.value)}
+                            className="w-full px-3 py-2 bg-dashboard-bg border border-panel-border rounded text-text-main text-sm focus:outline-none focus:border-primary-blue"
+                            required
+                          >
+                            <option value="">-- Wybierz punkt --</option>
+                            {strategicPoints.map((sp) => (
+                              <option key={sp.id} value={sp.id}>{sp.name} ({sp.type})</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
+                      <div className="space-y-1">
+                        <label className="text-xs text-text-muted font-medium">Liczba osób potrzebna</label>
+                        <input
+                          type="number"
+                          value={staffingCount}
+                          onChange={(e) => setStaffingCount(e.target.value)}
+                          className="w-full px-3 py-2 bg-dashboard-bg border border-panel-border rounded text-text-main text-sm focus:outline-none"
+                          min="1"
+                          required
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-xs text-text-muted font-medium">Dodatkowe instrukcje (opcjonalnie)</label>
+                        <textarea
+                          value={staffingDescription}
+                          onChange={(e) => setStaffingDescription(e.target.value)}
+                          className="w-full px-3 py-2 bg-dashboard-bg border border-panel-border rounded text-text-main text-sm focus:outline-none h-20 resize-none"
+                          placeholder="np. Potrzebne wsparcie przy bramkach wejściowych"
+                        />
+                      </div>
+
+                      <button type="submit" className="btn-primary w-full mt-2">
+                        📡 Wyślij zapotrzebowanie
+                      </button>
+                    </form>
+                  </div>
+                </div>
+
+                {/* Forced Assignment Panel */}
+                <div className="dashboard-panel p-6 space-y-4">
+                  <h3 className="text-lg font-medium text-text-main">Przymusowe przydzielanie podwładnego strefie/punktowi</h3>
+                  <p className="text-xs text-text-muted">
+                    Możesz odgórnie i przymusowo zmienić strefę lub punkt strategiczny, do którego przypisany jest zalogowany wolontariusz.
+                  </p>
+
+                  {activeShifts.length === 0 ? (
+                    <p className="text-sm text-text-muted text-center py-6">
+                      Brak wolontariuszy aktualnie na aktywnej zmianie.
+                    </p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="border-b border-panel-border text-text-muted text-xs font-semibold uppercase">
+                            <th className="pb-3">Wolontariusz</th>
+                            <th className="pb-3">Aktualny Przydział</th>
+                            <th className="pb-3">Zmień Przydział</th>
+                          </tr>
+                        </thead>
+                        <tbody className="text-sm text-text-main divide-y divide-panel-border/30">
+                          {activeShifts.map((shift) => (
+                            <tr key={shift.id} className="hover:bg-panel-bg/40">
+                              <td className="py-3 font-semibold">{shift.username}</td>
+                              <td className="py-3">
+                                {shift.zoneId ? (
+                                  <span className="text-xs bg-blue-500/10 text-blue-400 px-2 py-1 rounded border border-blue-500/30">
+                                    📍 Strefa: {shift.zoneName}
+                                  </span>
+                                ) : shift.strategicPointId ? (
+                                  <span className="text-xs bg-amber-500/10 text-amber-400 px-2 py-1 rounded border border-amber-500/30">
+                                    🗺️ Punkt: {shift.strategicPointName}
+                                  </span>
+                                ) : (
+                                  <span className="text-xs text-text-muted">Cały teren / Brak strefy</span>
+                                )}
+                              </td>
+                              <td className="py-3">
+                                <select
+                                  disabled={actionLoading === shift.id}
+                                  value={
+                                    shift.zoneId
+                                      ? `zone:${shift.zoneId}`
+                                      : shift.strategicPointId
+                                      ? `point:${shift.strategicPointId}`
+                                      : ""
+                                  }
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (!val) {
+                                      handleForcedShiftAssignment(shift.id, null, null);
+                                    } else {
+                                      const [type, id] = val.split(":");
+                                      if (type === "zone") {
+                                        handleForcedShiftAssignment(shift.id, id, null);
+                                      } else {
+                                        handleForcedShiftAssignment(shift.id, null, id);
+                                      }
+                                    }
+                                  }}
+                                  className="px-2 py-1 bg-dashboard-bg border border-panel-border rounded text-xs text-text-main focus:outline-none focus:border-primary-blue cursor-pointer"
+                                >
+                                  <option value="">-- Wyczyść / Brak przydziału --</option>
+                                  <optgroup label="Strefy (Zones)">
+                                    {zones.map((z) => (
+                                      <option key={z.id} value={`zone:${z.id}`}>Strefa: {z.name}</option>
+                                    ))}
+                                  </optgroup>
+                                  <optgroup label="Punkty Strategiczne">
+                                    {strategicPoints.map((sp) => (
+                                      <option key={sp.id} value={`point:${sp.id}`}>Punkt: {sp.name}</option>
+                                    ))}
+                                  </optgroup>
+                                </select>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>

@@ -12,8 +12,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.event.peoplemanager.domain.entity.Event;
 import com.event.peoplemanager.domain.entity.Zone;
+import com.event.peoplemanager.domain.entity.StrategicPoint;
 import com.event.peoplemanager.repository.EventRepository;
 import com.event.peoplemanager.repository.ZoneRepository;
+
+import com.event.peoplemanager.repository.StrategicPointRepository;
 
 import java.time.ZonedDateTime;
 import java.util.List;
@@ -27,6 +30,7 @@ public class ShiftService {
     private final UserRepository userRepository;
     private final EventRepository eventRepository;
     private final ZoneRepository zoneRepository;
+    private final StrategicPointRepository strategicPointRepository;
 
     @Transactional
     public Shift checkIn(UUID userId, UUID eventId, UUID zoneId) {
@@ -89,5 +93,32 @@ public class ShiftService {
             throw new ResourceNotFoundException("Event not found: " + eventId);
         }
         return shiftRepository.findByEventIdAndStatus(eventId, ShiftStatus.IN_PROGRESS);
+    }
+
+    @Transactional
+    public Shift assignShift(UUID eventId, UUID shiftId, UUID zoneId, UUID strategicPointId) {
+        Shift shift = shiftRepository.findById(shiftId)
+                .orElseThrow(() -> new ResourceNotFoundException("Shift not found: " + shiftId));
+
+        if (!shift.getEvent().getId().equals(eventId)) {
+            throw new IllegalArgumentException("Shift does not belong to this event");
+        }
+
+        if (zoneId != null) {
+            Zone zone = zoneRepository.findById(zoneId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Zone not found: " + zoneId));
+            shift.setZone(zone);
+            shift.setStrategicPoint(null); // Clear point when zone is set
+        } else if (strategicPointId != null) {
+            StrategicPoint sp = strategicPointRepository.findById(strategicPointId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Strategic point not found: " + strategicPointId));
+            shift.setStrategicPoint(sp);
+            shift.setZone(null); // Clear zone when point is set
+        } else {
+            shift.setZone(null);
+            shift.setStrategicPoint(null);
+        }
+
+        return shiftRepository.save(shift);
     }
 }

@@ -1,21 +1,18 @@
 package com.event.peoplemanager.dto.response;
 
-import com.event.peoplemanager.domain.enums.ShiftStatus;
-
 import java.time.ZonedDateTime;
 import java.util.UUID;
 
-public record ShiftResponse(
+public record StaffingRequestResponse(
         UUID id,
-        UUID userId,
-        String username,
+        UUID eventId,
         UUID zoneId,
         String zoneName,
         UUID strategicPointId,
         String strategicPointName,
-        UUID eventId,
-        ZonedDateTime startTime,
-        ZonedDateTime endTime,
-        ShiftStatus status,
+        Integer countNeeded,
+        String description,
+        String status,
+        Boolean userReacted,
         ZonedDateTime createdAt
 ) {}
