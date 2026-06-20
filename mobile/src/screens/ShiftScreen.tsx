@@ -15,6 +15,7 @@ import {
 import * as Location from "expo-location";
 import { useAuth } from "../context/AuthContext";
 import { api, ZoneResponse } from "../services/api";
+import MapScreen from "./MapScreen";
 
 type IncidentType = "MEDICAL" | "SECURITY" | "LOGISTICS" | "OTHER";
 
@@ -56,6 +57,9 @@ export default function ShiftScreen() {
   const [inviteCode, setInviteCode] = useState("");
   const [joiningEvent, setJoiningEvent] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
+
+  // Mapa
+  const [showMap, setShowMap] = useState(false);
 
   // Referencje do cykli
   const locationIntervalRef = useRef<any>(null);
@@ -272,6 +276,10 @@ export default function ShiftScreen() {
     return zone ? zone.name : "Strefa przypisana";
   };
 
+  if (showMap) {
+    return <MapScreen onClose={() => setShowMap(false)} />;
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
@@ -326,6 +334,14 @@ export default function ShiftScreen() {
               <Text style={styles.eventCardBtnText}>➕ Dołącz kodem</Text>
             </TouchableOpacity>
           </View>
+
+          {/* Map Button */}
+          <TouchableOpacity
+            style={styles.mapButton}
+            onPress={() => setShowMap(true)}
+          >
+            <Text style={styles.mapButtonText}>🗺️ Pokaż mapę wydarzenia</Text>
+          </TouchableOpacity>
         </View>
 
         {/* GPS Permission Warning */}
@@ -1092,5 +1108,19 @@ const styles = StyleSheet.create({
     color: "#FCA5A5",
     fontSize: 13,
     fontWeight: "500",
+  },
+  mapButton: {
+    marginTop: 12,
+    backgroundColor: "rgba(59, 130, 246, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(59, 130, 246, 0.35)",
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  mapButtonText: {
+    color: "#60A5FA",
+    fontSize: 14,
+    fontWeight: "700",
   },
 });
