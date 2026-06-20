@@ -115,6 +115,13 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
       connectHeaders: {
         Authorization: `Bearer ${token}`,
       },
+      webSocketFactory: () => {
+        return new WebSocket(wsUrl, [], {
+          headers: {
+            "Bypass-Tunnel-Reminder": "true",
+          },
+        });
+      },
       reconnectDelay: 5000,
       heartbeatIncoming: 4000,
       heartbeatOutgoing: 4000,
