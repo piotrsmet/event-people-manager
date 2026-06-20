@@ -74,7 +74,7 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
     } else if (url.startsWith("http://")) {
       url = url.replace("http://", "ws://");
     }
-    return `${url}/ws`;
+    return `${url}/ws-raw`;
   }, []);
 
   // 2. Fetch Chat History
