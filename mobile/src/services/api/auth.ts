@@ -5,7 +5,10 @@ export const authApi = {
     try {
       const res = await fetch(`${BASE_URL}/auth/login`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Bypass-Tunnel-Reminder": "true"
+        },
         body: JSON.stringify({ username, password }),
       });
 
@@ -29,7 +32,10 @@ export const authApi = {
     try {
       const res = await fetch(`${BASE_URL}/auth/register`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Bypass-Tunnel-Reminder": "true"
+        },
         body: JSON.stringify({ username, password, role }),
       });
 
