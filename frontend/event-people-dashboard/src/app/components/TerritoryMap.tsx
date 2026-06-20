@@ -180,6 +180,9 @@ export default function TerritoryMap({
           const pts = parseGeoJsonToPoints(z.boundaryGeoJson);
           if (pts.length < 3) return null;
 
+          // In adding-point mode, make zones interactive (click-through) rather than showing popup
+          const isInteractiveMode = isAddingPoint || isDrawingBoundary || isDrawingZone;
+
           return (
             <Polygon
               key={z.id}
@@ -190,7 +193,10 @@ export default function TerritoryMap({
                 fillOpacity: 0.25,
                 weight: 2,
               }}
+              interactive={!isInteractiveMode}
+              bubblingMouseEvents={isInteractiveMode}
             >
+              {!isInteractiveMode && (
               <Popup className="custom-popup">
                 <div className="p-2 space-y-2.5 text-text-main text-xs min-w-[180px]">
                   {/* Header */}
@@ -252,6 +258,7 @@ export default function TerritoryMap({
                   )}
                 </div>
               </Popup>
+              )}
             </Polygon>
           );
         })}
