@@ -18,7 +18,7 @@ import { BASE_URL } from "../services/api/base";
 import { Client } from "@stomp/stompjs";
 
 // Polyfill global TextEncoder / TextDecoder if missing (sometimes required for React Native JS engines)
-if (typeof global.TextEncoder === "undefined") {
+if (typeof TextEncoder === "undefined") {
   class TextEncoder {
     encode(str: string) {
       const arr = new Uint8Array(str.length);
@@ -28,10 +28,10 @@ if (typeof global.TextEncoder === "undefined") {
       return arr;
     }
   }
-  global.TextEncoder = TextEncoder as any;
+  (globalThis as any).TextEncoder = TextEncoder;
 }
 
-if (typeof global.TextDecoder === "undefined") {
+if (typeof TextDecoder === "undefined") {
   class TextDecoder {
     decode(arr: Uint8Array) {
       let str = "";
@@ -41,7 +41,7 @@ if (typeof global.TextDecoder === "undefined") {
       return str;
     }
   }
-  global.TextDecoder = TextDecoder as any;
+  (globalThis as any).TextDecoder = TextDecoder as any;
 }
 
 interface ChatScreenProps {
@@ -116,7 +116,7 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
         Authorization: `Bearer ${token}`,
       },
       webSocketFactory: () => {
-        return new WebSocket(wsUrl, [], {
+        return new (WebSocket as any)(wsUrl, [], {
           headers: {
             "Bypass-Tunnel-Reminder": "true",
           },
