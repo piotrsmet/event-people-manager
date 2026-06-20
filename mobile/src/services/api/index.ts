@@ -6,6 +6,7 @@ import { shiftApi } from "./shift";
 import { locationApi } from "./location";
 import { incidentApi } from "./incident";
 import { strategicPointApi } from "./strategicPoint";
+import { chatApi } from "./chat";
 
 export * from "./base";
 
@@ -18,6 +19,9 @@ export const api = {
   ...locationApi,
   ...incidentApi,
   ...strategicPointApi,
+  ...chatApi,
 };
 export type { UserResponse, EventResponse, ZoneResponse, ShiftResponse, IncidentResponse } from "./base";
 export type { StrategicPointResponse } from "./strategicPoint";
+export type { ChatMessageResponse } from "./chat";
+

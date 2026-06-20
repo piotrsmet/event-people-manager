@@ -16,6 +16,7 @@ import * as Location from "expo-location";
 import { useAuth } from "../context/AuthContext";
 import { api, ZoneResponse } from "../services/api";
 import MapScreen from "./MapScreen";
+import ChatScreen from "./ChatScreen";
 
 type IncidentType = "MEDICAL" | "SECURITY" | "LOGISTICS" | "OTHER";
 
@@ -58,8 +59,9 @@ export default function ShiftScreen() {
   const [joiningEvent, setJoiningEvent] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
 
-  // Mapa
+  // Mapa i Chat
   const [showMap, setShowMap] = useState(false);
+  const [showChat, setShowChat] = useState(false);
 
   // Referencje do cykli
   const locationIntervalRef = useRef<any>(null);
@@ -280,6 +282,10 @@ export default function ShiftScreen() {
     return <MapScreen onClose={() => setShowMap(false)} />;
   }
 
+  if (showChat) {
+    return <ChatScreen onClose={() => setShowChat(false)} />;
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
@@ -341,6 +347,14 @@ export default function ShiftScreen() {
             onPress={() => setShowMap(true)}
           >
             <Text style={styles.mapButtonText}>🗺️ Pokaż mapę wydarzenia</Text>
+          </TouchableOpacity>
+
+          {/* Chat Button */}
+          <TouchableOpacity
+            style={styles.chatButton}
+            onPress={() => setShowChat(true)}
+          >
+            <Text style={styles.chatButtonText}>💬 Otwórz czat wydarzenia</Text>
           </TouchableOpacity>
         </View>
 
@@ -1120,6 +1134,20 @@ const styles = StyleSheet.create({
   },
   mapButtonText: {
     color: "#60A5FA",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  chatButton: {
+    marginTop: 12,
+    backgroundColor: "rgba(16, 185, 129, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(16, 185, 129, 0.35)",
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  chatButtonText: {
+    color: "#34d399",
     fontSize: 14,
     fontWeight: "700",
   },

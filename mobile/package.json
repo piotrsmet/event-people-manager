@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "main": "index.ts",
   "dependencies": {
+    "@stomp/stompjs": "^7.3.0",
     "expo": "~56.0.12",
     "expo-location": "~56.0.18",
     "expo-secure-store": "~56.0.4",
