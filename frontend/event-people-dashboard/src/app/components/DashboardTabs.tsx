@@ -11,6 +11,7 @@ import { EventMemberResponse, EventResponse } from "../../types/event";
 import { InviteTokenResponse } from "../../types/invite";
 import { IncidentResponse } from "../../types/incident";
 import TerritoryManager from "./TerritoryManager";
+import ChatManager from "./ChatManager";
 
 interface DashboardTabsProps {
   eventId: string;
@@ -20,7 +21,7 @@ interface DashboardTabsProps {
   onUpdateEvent: (updatedEvent: EventResponse) => void;
 }
 
-type TabType = "map" | "team" | "invites" | "incidents" | "territory";
+type TabType = "map" | "team" | "invites" | "incidents" | "territory" | "chat";
 
 export default function DashboardTabs({ eventId, token, onRefreshStats, activeEvent, onUpdateEvent }: DashboardTabsProps) {
   const [activeTab, setActiveTab] = useState<TabType>("map");
@@ -248,6 +249,16 @@ export default function DashboardTabs({ eventId, token, onRefreshStats, activeEv
           }`}
         >
           🎟️ Zaproszenia
+        </button>
+        <button
+          onClick={() => setActiveTab("chat")}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-all duration-200 ${
+            activeTab === "chat"
+              ? "border-primary-blue text-text-main"
+              : "border-transparent text-text-muted hover:text-text-main"
+          }`}
+        >
+          💬 Czat
         </button>
       </div>
 
@@ -513,6 +524,13 @@ export default function DashboardTabs({ eventId, token, onRefreshStats, activeEv
                     </button>
                   </form>
                 </div>
+              </div>
+            )}
+
+            {/* Chat Tab */}
+            {activeTab === "chat" && (
+              <div className="p-6">
+                <ChatManager eventId={eventId} token={token} members={members} />
               </div>
             )}
           </div>
