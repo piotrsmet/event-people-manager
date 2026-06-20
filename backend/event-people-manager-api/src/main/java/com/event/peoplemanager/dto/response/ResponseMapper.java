@@ -136,4 +136,19 @@ public class ResponseMapper {
                 point.getYRatio()
         );
     }
+
+    public ChatMessageResponse toChatMessageResponse(ChatMessage message) {
+        return new ChatMessageResponse(
+                message.getId(),
+                message.getEvent().getId(),
+                message.getSender().getId(),
+                message.getSender().getUsername(),
+                message.getRecipient() != null ? message.getRecipient().getId() : null,
+                message.getRecipient() != null ? message.getRecipient().getUsername() : null,
+                message.getChannel(),
+                message.getContent(),
+                message.getCreatedAt()
+        );
+    }
 }
+
