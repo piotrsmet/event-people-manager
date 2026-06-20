@@ -174,10 +174,20 @@ export default function ChatScreen({ onClose }: ChatScreenProps) {
 
     client.onDisconnect = () => {
       setIsConnected(false);
+      console.log("Mobile STOMP: disconnected");
     };
 
     client.onStompError = (frame) => {
       console.warn("Mobile STOMP error:", frame.headers["message"]);
+      console.warn("Mobile STOMP error body:", frame.body);
+    };
+
+    client.onWebSocketClose = (evt) => {
+      console.log("Mobile STOMP: WebSocket closed. Code:", evt.code, "Reason:", evt.reason, "WasClean:", evt.wasClean);
+    };
+
+    client.onWebSocketError = (err) => {
+      console.log("Mobile STOMP: WebSocket error:", err);
     };
 
     client.activate();
