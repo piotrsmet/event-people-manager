@@ -19,15 +19,19 @@ import { api, ZoneResponse, StaffingRequestResponse, ShiftResponse, Notification
 import MapScreen from "./MapScreen";
 import ChatScreen from "./ChatScreen";
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+try {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+} catch (e) {
+  console.log("Błąd setNotificationHandler w tym środowisku (np. Expo Go):", e);
+}
 
 type IncidentType = "MEDICAL" | "SECURITY" | "LOGISTICS" | "OTHER";
 
