@@ -13,10 +13,21 @@ import {
   Platform,
 } from "react-native";
 import * as Location from "expo-location";
+import * as Notifications from "expo-notifications";
 import { useAuth } from "../context/AuthContext";
 import { api, ZoneResponse, StaffingRequestResponse, ShiftResponse, NotificationResponse } from "../services/api";
 import MapScreen from "./MapScreen";
 import ChatScreen from "./ChatScreen";
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
 
 type IncidentType = "MEDICAL" | "SECURITY" | "LOGISTICS" | "OTHER";
 
@@ -79,6 +90,41 @@ export default function ShiftScreen() {
   const locationIntervalRef = useRef<any>(null);
   const timerIntervalRef = useRef<any>(null);
   const dataIntervalRef = useRef<any>(null);
+  const knownNotificationIds = useRef<Set<string>>(new Set());
+  const isFirstLoad = useRef(true);
+
+  const triggerLocalNotification = async (title: string, body: string) => {
+    try {
+      if (Platform.OS === "web") return;
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: title,
+          body: body || "",
+          sound: true,
+        },
+        trigger: null,
+      });
+    } catch (e) {
+      console.warn("Błąd wysyłania powiadomienia lokalnego:", e);
+    }
+  };
+
+  // Zezwolenie na powiadomienia lokalne
+  useEffect(() => {
+    const requestNotificationPermission = async () => {
+      if (Platform.OS === "web") return;
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+      if (existingStatus !== "granted") {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+      if (finalStatus !== "granted") {
+        console.warn("Brak uprawnień do powiadomień push.");
+      }
+    };
+    requestNotificationPermission();
+  }, []);
 
   // 1. Ładowanie stref przy wejściu na ekran
   useEffect(() => {
@@ -127,6 +173,20 @@ export default function ShiftScreen() {
 
       try {
         const notifs = await api.getMyNotifications(selectedEvent.id);
+        console.log("Powiadomienia z serwera:", JSON.stringify(notifs));
+
+        if (isFirstLoad.current) {
+          notifs.forEach((n) => knownNotificationIds.current.add(n.id));
+          isFirstLoad.current = false;
+        } else {
+          notifs.forEach((notif) => {
+            if (!notif.read && !knownNotificationIds.current.has(notif.id)) {
+              triggerLocalNotification(notif.title, notif.message);
+            }
+            knownNotificationIds.current.add(notif.id);
+          });
+        }
+
         setNotifications(notifs);
       } catch (err) {
         console.warn("Nie udało się pobrać powiadomień:", err);
@@ -899,11 +959,15 @@ export default function ShiftScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { maxHeight: "80%", width: "90%" }]}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 15 }}>
-              <Text style={styles.modalTitle}>🔔 Powiadomienia</Text>
+            <View style={{ flexDirection: "column", marginBottom: 15, width: "100%", borderBottomWidth: 1, borderBottomColor: "#334155", paddingBottom: 10 }}>
+              <Text style={{ fontSize: 22, fontWeight: "800", color: "#F8FAFC", textAlign: "left" }}>
+                🔔 Powiadomienia
+              </Text>
               {unreadNotificationsCount > 0 && (
-                <TouchableOpacity onPress={handleMarkAllAsRead}>
-                  <Text style={{ color: "#3B82F6", fontSize: 13, fontWeight: "600" }}>Odczytaj wszystkie</Text>
+                <TouchableOpacity onPress={handleMarkAllAsRead} style={{ marginTop: 6 }}>
+                  <Text style={{ color: "#3B82F6", fontSize: 13, fontWeight: "700", textDecorationLine: "underline" }}>
+                    Oznacz wszystkie jako przeczytane
+                  </Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -941,7 +1005,7 @@ export default function ShiftScreen() {
                       )}
                     </View>
                     <Text style={{ color: "#94A3B8", fontSize: 13, marginTop: 5 }}>
-                      {item.message}
+                      {item.message || "Brak treści powiadomienia"}
                     </Text>
                     <Text style={{ color: "#475569", fontSize: 11, marginTop: 6, alignSelf: "flex-end" }}>
                       {new Date(item.createdAt).toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" })}
