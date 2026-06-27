@@ -79,59 +79,7 @@ export default function ShiftScreen() {
   const locationIntervalRef = useRef<any>(null);
   const timerIntervalRef = useRef<any>(null);
   const dataIntervalRef = useRef<any>(null);
-  const knownNotificationIds = useRef<Set<string>>(new Set());
-  const isFirstLoad = useRef(true);
 
-  const triggerLocalNotification = async (title: string, body: string) => {
-    try {
-      if (Platform.OS === "web") return;
-      const Notifications = require("expo-notifications");
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: title,
-          body: body || "",
-          sound: true,
-        },
-        trigger: null,
-      });
-    } catch (e) {
-      console.log("Błąd wysyłania powiadomienia lokalnego (brak obsługi w Expo Go):", e);
-    }
-  };
-
-  // Zezwolenie na powiadomienia lokalne i inicjalizacja handlera
-  useEffect(() => {
-    const initNotifications = async () => {
-      if (Platform.OS === "web") return;
-      try {
-        const Notifications = require("expo-notifications");
-        
-        // Dynamiczna rejestracja handlera
-        Notifications.setNotificationHandler({
-          handleNotification: async () => ({
-            shouldShowAlert: true,
-            shouldPlaySound: true,
-            shouldSetBadge: true,
-            shouldShowBanner: true,
-            shouldShowList: true,
-          }),
-        });
-
-        const { status: existingStatus } = await Notifications.getPermissionsAsync();
-        let finalStatus = existingStatus;
-        if (existingStatus !== "granted") {
-          const { status } = await Notifications.requestPermissionsAsync();
-          finalStatus = status;
-        }
-        if (finalStatus !== "granted") {
-          console.log("Brak uprawnień do powiadomień.");
-        }
-      } catch (err) {
-        console.log("Powiadomienia lokalne nie są obsługiwane w tym środowisku Expo Go:", err);
-      }
-    };
-    initNotifications();
-  }, []);
 
   // 1. Ładowanie stref przy wejściu na ekran
   useEffect(() => {
@@ -181,19 +129,6 @@ export default function ShiftScreen() {
       try {
         const notifs = await api.getMyNotifications(selectedEvent.id);
         console.log("Powiadomienia z serwera:", JSON.stringify(notifs));
-
-        if (isFirstLoad.current) {
-          notifs.forEach((n) => knownNotificationIds.current.add(n.id));
-          isFirstLoad.current = false;
-        } else {
-          notifs.forEach((notif) => {
-            if (!notif.read && !knownNotificationIds.current.has(notif.id)) {
-              triggerLocalNotification(notif.title, notif.message);
-            }
-            knownNotificationIds.current.add(notif.id);
-          });
-        }
-
         setNotifications(notifs);
       } catch (err) {
         console.warn("Nie udało się pobrać powiadomień:", err);
