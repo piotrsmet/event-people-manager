@@ -27,6 +27,9 @@ export const authApi = {
   async register(
     username: string,
     password: string,
+    firstName: string,
+    lastName: string,
+    birthDate: string,
     role: "VOLUNTEER" | "SECURITY" | "COORDINATOR" = "VOLUNTEER"
   ): Promise<{ success: boolean; token?: string; error?: string }> {
     try {
@@ -36,7 +39,7 @@ export const authApi = {
           "Content-Type": "application/json",
           "Bypass-Tunnel-Reminder": "true"
         },
-        body: JSON.stringify({ username, password, role }),
+        body: JSON.stringify({ username, password, firstName, lastName, birthDate, role }),
       });
 
       if (!res.ok) {

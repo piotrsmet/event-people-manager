@@ -26,13 +26,20 @@ export default function RegisterScreen({ onBackToLogin }: RegisterScreenProps) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [birthDate, setBirthDate] = useState("");
   const [role, setRole] = useState<GlobalRole>("VOLUNTEER");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const handleRegister = async () => {
     const cleanUsername = username.trim();
-    if (!cleanUsername || !password || !confirmPassword) {
+    const cleanFirstName = firstName.trim();
+    const cleanLastName = lastName.trim();
+    const cleanBirthDate = birthDate.trim();
+
+    if (!cleanUsername || !password || !confirmPassword || !cleanFirstName || !cleanLastName || !cleanBirthDate) {
       setError("Wszystkie pola są wymagane.");
       return;
     }
@@ -47,11 +54,35 @@ export default function RegisterScreen({ onBackToLogin }: RegisterScreenProps) {
       return;
     }
 
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(cleanBirthDate)) {
+      setError("Podaj prawidłową datę urodzenia (RRRR-MM-DD).");
+      return;
+    }
+
+    const dob = new Date(cleanBirthDate);
+    if (isNaN(dob.getTime())) {
+      setError("Podaj prawidłową datę urodzenia.");
+      return;
+    }
+
+    const today = new Date();
+    let age = today.getFullYear() - dob.getFullYear();
+    const m = today.getMonth() - dob.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
+      age--;
+    }
+
+    if (age < 10) {
+      setError("Podaj prawidłową datę urodzenia.");
+      return;
+    }
+
     setError(null);
     setLoading(true);
 
     try {
-      const registerRes = await authApi.register(cleanUsername, password, role);
+      const registerRes = await authApi.register(cleanUsername, password, cleanFirstName, cleanLastName, cleanBirthDate, role);
       if (!registerRes.success) {
         throw new Error(registerRes.error || "Nie udało się zarejestrować");
       }
@@ -97,6 +128,43 @@ export default function RegisterScreen({ onBackToLogin }: RegisterScreenProps) {
                   placeholderTextColor="#64748B"
                   value={username}
                   onChangeText={setUsername}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Imię</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="np. Jan"
+                  placeholderTextColor="#64748B"
+                  value={firstName}
+                  onChangeText={setFirstName}
+                  autoCorrect={false}
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Nazwisko</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="np. Kowalski"
+                  placeholderTextColor="#64748B"
+                  value={lastName}
+                  onChangeText={setLastName}
+                  autoCorrect={false}
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Data urodzenia (RRRR-MM-DD)</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="np. 1995-04-12"
+                  placeholderTextColor="#64748B"
+                  value={birthDate}
+                  onChangeText={setBirthDate}
                   autoCapitalize="none"
                   autoCorrect={false}
                 />

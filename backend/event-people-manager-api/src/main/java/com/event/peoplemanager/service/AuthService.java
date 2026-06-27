@@ -13,6 +13,8 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
+
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -24,7 +26,11 @@ public class AuthService {
 
     public AuthResponse register(RegisterRequest request) {
         if (userRepository.findByUsername(request.username()).isPresent()) {
-            throw new IllegalArgumentException("Username already exists");
+            throw new IllegalArgumentException("Nazwa użytkownika jest już zajęta.");
+        }
+
+        if (request.birthDate() == null || request.birthDate().isAfter(LocalDate.now().minusYears(10))) {
+            throw new IllegalArgumentException("Podaj prawidłową datę urodzenia.");
         }
 
         UserRole role = request.role() != null ? request.role() : UserRole.VOLUNTEER;
@@ -32,6 +38,9 @@ public class AuthService {
         var user = User.builder()
                 .username(request.username())
                 .passwordHash(passwordEncoder.encode(request.password()))
+                .firstName(request.firstName())
+                .lastName(request.lastName())
+                .birthDate(request.birthDate())
                 .role(role)
                 .build();
 

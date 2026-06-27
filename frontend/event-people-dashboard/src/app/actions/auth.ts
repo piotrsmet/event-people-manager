@@ -10,7 +10,7 @@ export async function login(formData: FormData) {
   const password = formData.get("password") as string;
 
   if (!username || !password) {
-    return { error: "Username and password are required" };
+    return { error: "Wpisz login oraz hasło." };
   }
 
   try {
@@ -23,7 +23,8 @@ export async function login(formData: FormData) {
     });
 
     if (!res.ok) {
-      return { error: "Invalid credentials" };
+      const errData = await res.json().catch(() => ({}));
+      return { error: errData.message || "Nieprawidłowy login lub hasło." };
     }
 
     const data = await res.json();
@@ -39,10 +40,10 @@ export async function login(formData: FormData) {
       });
       return { success: true };
     } else {
-      return { error: "Token missing in response" };
+      return { error: "Brak tokenu autoryzacyjnego w odpowiedzi serwera." };
     }
   } catch (err) {
-    return { error: "Failed to connect to the server" };
+    return { error: "Błąd połączenia z serwerem" };
   }
 }
 
