@@ -958,7 +958,7 @@ export default function TerritoryManager({
       {/* Zone Details / ACL Modal Form */}
       {showZoneModal && (
         <div className="fixed inset-0 bg-black/85 flex items-center justify-center p-4 z-[9999] backdrop-blur-md">
-          <div className="dashboard-panel max-w-lg w-full p-6 space-y-5 bg-panel-bg border border-panel-border rounded-lg shadow-2xl animate-fade-in text-text-main max-h-[90vh] overflow-y-auto">
+          <div className="dashboard-panel max-w-3xl w-full p-6 space-y-5 bg-panel-bg border border-panel-border rounded-lg shadow-2xl animate-fade-in text-text-main max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center pb-2.5 border-b border-panel-border">
               <h3 className="text-base font-semibold">
                 {activeZoneId ? "Edytuj Szczegóły Strefy i ACL" : "Nowa Strefa Bezpieczeństwa"}
