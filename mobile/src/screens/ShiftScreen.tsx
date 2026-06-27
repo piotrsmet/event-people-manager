@@ -13,25 +13,10 @@ import {
   Platform,
 } from "react-native";
 import * as Location from "expo-location";
-import * as Notifications from "expo-notifications";
 import { useAuth } from "../context/AuthContext";
 import { api, ZoneResponse, StaffingRequestResponse, ShiftResponse, NotificationResponse } from "../services/api";
 import MapScreen from "./MapScreen";
 import ChatScreen from "./ChatScreen";
-
-try {
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowAlert: true,
-      shouldPlaySound: true,
-      shouldSetBadge: true,
-      shouldShowBanner: true,
-      shouldShowList: true,
-    }),
-  });
-} catch (e) {
-  console.log("Błąd setNotificationHandler w tym środowisku (np. Expo Go):", e);
-}
 
 type IncidentType = "MEDICAL" | "SECURITY" | "LOGISTICS" | "OTHER";
 
@@ -100,6 +85,7 @@ export default function ShiftScreen() {
   const triggerLocalNotification = async (title: string, body: string) => {
     try {
       if (Platform.OS === "web") return;
+      const Notifications = require("expo-notifications");
       await Notifications.scheduleNotificationAsync({
         content: {
           title: title,
@@ -113,11 +99,24 @@ export default function ShiftScreen() {
     }
   };
 
-  // Zezwolenie na powiadomienia lokalne
+  // Zezwolenie na powiadomienia lokalne i inicjalizacja handlera
   useEffect(() => {
-    const requestNotificationPermission = async () => {
+    const initNotifications = async () => {
       if (Platform.OS === "web") return;
       try {
+        const Notifications = require("expo-notifications");
+        
+        // Dynamiczna rejestracja handlera
+        Notifications.setNotificationHandler({
+          handleNotification: async () => ({
+            shouldShowAlert: true,
+            shouldPlaySound: true,
+            shouldSetBadge: true,
+            shouldShowBanner: true,
+            shouldShowList: true,
+          }),
+        });
+
         const { status: existingStatus } = await Notifications.getPermissionsAsync();
         let finalStatus = existingStatus;
         if (existingStatus !== "granted") {
@@ -131,7 +130,7 @@ export default function ShiftScreen() {
         console.log("Powiadomienia lokalne nie są obsługiwane w tym środowisku Expo Go:", err);
       }
     };
-    requestNotificationPermission();
+    initNotifications();
   }, []);
 
   // 1. Ładowanie stref przy wejściu na ekran
