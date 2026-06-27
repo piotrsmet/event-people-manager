@@ -1099,6 +1099,13 @@ export default function DashboardTabs({ eventId, token, onRefreshStats, activeEv
                 </div>
               </div>
             )}
+
+            {/* 6. Chat Tab */}
+            {activeTab === "chat" && (
+              <div className="p-6">
+                <ChatManager eventId={eventId} token={token} members={members} />
+              </div>
+            )}
           </div>
         )}
       </div>
