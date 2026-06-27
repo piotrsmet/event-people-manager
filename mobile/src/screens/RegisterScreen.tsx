@@ -19,8 +19,6 @@ interface RegisterScreenProps {
   onBackToLogin: () => void;
 }
 
-type GlobalRole = "VOLUNTEER" | "SECURITY" | "COORDINATOR";
-
 export default function RegisterScreen({ onBackToLogin }: RegisterScreenProps) {
   const { signIn } = useAuth();
   const [username, setUsername] = useState("");
@@ -29,7 +27,6 @@ export default function RegisterScreen({ onBackToLogin }: RegisterScreenProps) {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [birthDate, setBirthDate] = useState("");
-  const [role, setRole] = useState<GlobalRole>("VOLUNTEER");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -82,7 +79,7 @@ export default function RegisterScreen({ onBackToLogin }: RegisterScreenProps) {
     setLoading(true);
 
     try {
-      const registerRes = await authApi.register(cleanUsername, password, cleanFirstName, cleanLastName, cleanBirthDate, role);
+      const registerRes = await authApi.register(cleanUsername, password, cleanFirstName, cleanLastName, cleanBirthDate, "VOLUNTEER");
       if (!registerRes.success) {
         throw new Error(registerRes.error || "Nie udało się zarejestrować");
       }
@@ -196,31 +193,6 @@ export default function RegisterScreen({ onBackToLogin }: RegisterScreenProps) {
                   autoCapitalize="none"
                   autoCorrect={false}
                 />
-              </View>
-
-              <Text style={styles.label}>Twoja główna rola:</Text>
-              <View style={styles.rolesGrid}>
-                {(["VOLUNTEER", "SECURITY", "COORDINATOR"] as GlobalRole[]).map((r) => (
-                  <TouchableOpacity
-                    key={r}
-                    style={[
-                      styles.roleBtn,
-                      role === r && styles.roleBtnSelected,
-                    ]}
-                    onPress={() => setRole(r)}
-                  >
-                    <Text
-                      style={[
-                        styles.roleBtnText,
-                        role === r && styles.roleBtnTextSelected,
-                      ]}
-                    >
-                      {r === "VOLUNTEER" && "🙋‍♂️ WOLONTARIUSZ"}
-                      {r === "SECURITY" && "🛡️ OCHRONA"}
-                      {r === "COORDINATOR" && "🔑 KOORDYNATOR"}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
               </View>
 
               <TouchableOpacity
