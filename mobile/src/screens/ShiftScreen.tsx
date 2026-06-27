@@ -105,7 +105,7 @@ export default function ShiftScreen() {
         trigger: null,
       });
     } catch (e) {
-      console.warn("Błąd wysyłania powiadomienia lokalnego:", e);
+      console.log("Błąd wysyłania powiadomienia lokalnego (brak obsługi w Expo Go):", e);
     }
   };
 
@@ -113,14 +113,18 @@ export default function ShiftScreen() {
   useEffect(() => {
     const requestNotificationPermission = async () => {
       if (Platform.OS === "web") return;
-      const { status: existingStatus } = await Notifications.getPermissionsAsync();
-      let finalStatus = existingStatus;
-      if (existingStatus !== "granted") {
-        const { status } = await Notifications.requestPermissionsAsync();
-        finalStatus = status;
-      }
-      if (finalStatus !== "granted") {
-        console.warn("Brak uprawnień do powiadomień push.");
+      try {
+        const { status: existingStatus } = await Notifications.getPermissionsAsync();
+        let finalStatus = existingStatus;
+        if (existingStatus !== "granted") {
+          const { status } = await Notifications.requestPermissionsAsync();
+          finalStatus = status;
+        }
+        if (finalStatus !== "granted") {
+          console.log("Brak uprawnień do powiadomień.");
+        }
+      } catch (err) {
+        console.log("Powiadomienia lokalne nie są obsługiwane w tym środowisku Expo Go:", err);
       }
     };
     requestNotificationPermission();
