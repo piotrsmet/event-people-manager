@@ -900,7 +900,7 @@ export default function ShiftScreen() {
         onRequestClose={() => setNotificationsModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { maxHeight: "80%", width: "90%" }]}>
+          <View style={[styles.modalContent, { height: 480, width: "90%", flexDirection: "column" }]}>
             <View style={{ flexDirection: "column", marginBottom: 15, width: "100%", borderBottomWidth: 1, borderBottomColor: "#334155", paddingBottom: 10 }}>
               <Text style={{ fontSize: 22, fontWeight: "800", color: "#F8FAFC", textAlign: "left" }}>
                 🔔 Powiadomienia
@@ -950,7 +950,14 @@ export default function ShiftScreen() {
                       {item.message || "Brak treści powiadomienia"}
                     </Text>
                     <Text style={{ color: "#475569", fontSize: 11, marginTop: 6, alignSelf: "flex-end" }}>
-                      {new Date(item.createdAt).toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" })}
+                      {(() => {
+                        try {
+                          const d = new Date(item.createdAt);
+                          return isNaN(d.getTime()) ? "" : d.toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" });
+                        } catch {
+                          return "";
+                        }
+                      })()}
                     </Text>
                   </TouchableOpacity>
                 ))}
