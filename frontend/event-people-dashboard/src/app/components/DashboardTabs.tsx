@@ -38,7 +38,7 @@ interface DashboardTabsProps {
   onUpdateEvent: (updatedEvent: EventResponse) => void;
 }
 
-type TabType = "map" | "team" | "invites" | "incidents" | "territory" | "chat" | "roles" | "staffing";
+type TabType = "map" | "team" | "invites" | "incidents" | "territory" | "chat" | "roles" | "staffing" | "shifts";
 
 export default function DashboardTabs({ eventId, token, onRefreshStats, activeEvent, onUpdateEvent }: DashboardTabsProps) {
   const [activeTab, setActiveTab] = useState<TabType>("map");
@@ -67,6 +67,10 @@ export default function DashboardTabs({ eventId, token, onRefreshStats, activeEv
   const [staffingZoneId, setStaffingZoneId] = useState("");
   const [staffingPointId, setStaffingPointId] = useState("");
   const [staffingDescription, setStaffingDescription] = useState("");
+
+  // Shifts tab filters
+  const [shiftFilter, setShiftFilter] = useState("");
+  const [shiftSort, setShiftSort] = useState<"name" | "zone" | "point" | "time">("name");
 
   // Badge — open incident count
   const [openIncidentCount, setOpenIncidentCount] = useState(0);
@@ -118,6 +122,42 @@ export default function DashboardTabs({ eventId, token, onRefreshStats, activeEv
           ).length;
           setOpenIncidentCount(openCount);
         }
+      } catch (_) { /* ignore */ }
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [eventId, activeTab]);
+
+  // Auto-polling when on staffing tab (refresh every 5s)
+  useEffect(() => {
+    if (activeTab !== "staffing") return;
+    const interval = setInterval(async () => {
+      try {
+        const srRes = await getStaffingRequests(eventId);
+        if (srRes.success && srRes.data) {
+          setStaffingRequests(srRes.data);
+          const respMap: Record<string, StaffingResponseResponse[]> = {};
+          await Promise.all(
+            srRes.data.map(async (req) => {
+              const respRes = await getStaffingResponses(eventId, req.id);
+              if (respRes.success && respRes.data) {
+                respMap[req.id] = respRes.data;
+              }
+            })
+          );
+          setStaffingResponses(respMap);
+        }
+      } catch (_) { /* ignore */ }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [eventId, activeTab]);
+
+  // Auto-polling when on shifts tab (refresh every 10s)
+  useEffect(() => {
+    if (activeTab !== "shifts") return;
+    const interval = setInterval(async () => {
+      try {
+        const shRes = await getActiveShifts(eventId);
+        if (shRes.success && shRes.data) setActiveShifts(shRes.data);
       } catch (_) { /* ignore */ }
     }, 10000);
     return () => clearInterval(interval);
@@ -182,6 +222,15 @@ export default function DashboardTabs({ eventId, token, onRefreshStats, activeEv
 
         const shRes = await getActiveShifts(eventId);
         if (shRes.success && shRes.data) setActiveShifts(shRes.data);
+      } else if (activeTab === "shifts") {
+        const shRes = await getActiveShifts(eventId);
+        if (shRes.success && shRes.data) setActiveShifts(shRes.data);
+
+        const zRes = await getZones(eventId);
+        if (zRes.success && zRes.data) setZones(zRes.data);
+
+        const spRes = await getStrategicPoints(eventId);
+        if (spRes.success && spRes.data) setStrategicPoints(spRes.data);
       }
     } catch (err) {
       setError("Wystąpił nieoczekiwany błąd");
@@ -448,6 +497,16 @@ export default function DashboardTabs({ eventId, token, onRefreshStats, activeEv
           }`}
         >
           📦 Zapotrzebowanie
+        </button>
+        <button
+          onClick={() => setActiveTab("shifts")}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-all duration-200 ${
+            activeTab === "shifts"
+              ? "border-primary-blue text-text-main"
+              : "border-transparent text-text-muted hover:text-text-main"
+          }`}
+        >
+          👷 Aktywne Zmiany
         </button>
       </div>
 
@@ -1017,43 +1076,94 @@ export default function DashboardTabs({ eventId, token, onRefreshStats, activeEv
                   </div>
                 </div>
 
-                {/* Forced Assignment Panel */}
-                <div className="dashboard-panel p-6 space-y-4">
-                  <h3 className="text-lg font-medium text-text-main">Przymusowe przydzielanie podwładnego strefie/punktowi</h3>
-                  <p className="text-xs text-text-muted">
-                    Możesz odgórnie i przymusowo zmienić strefę lub punkt strategiczny, do którego przypisany jest zalogowany wolontariusz.
-                  </p>
+              </div>
+            )}
 
-                  {activeShifts.length === 0 ? (
-                    <p className="text-sm text-text-muted text-center py-6">
-                      Brak wolontariuszy aktualnie na aktywnej zmianie.
-                    </p>
-                  ) : (
+            {/* Shifts (Aktywne Zmiany) Tab */}
+            {activeTab === "shifts" && (
+              <div className="dashboard-panel p-6 space-y-6">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                  <h3 className="text-lg font-medium text-text-main">👷 Aktywne Zmiany — Podgląd i Przydziały</h3>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <input
+                      type="text"
+                      value={shiftFilter}
+                      onChange={(e) => setShiftFilter(e.target.value)}
+                      placeholder="🔍 Szukaj wolontariusza..."
+                      className="px-3 py-1.5 bg-dashboard-bg border border-panel-border rounded text-sm text-text-main focus:outline-none focus:border-primary-blue w-56"
+                    />
+                    <select
+                      value={shiftSort}
+                      onChange={(e) => setShiftSort(e.target.value as any)}
+                      className="px-3 py-1.5 bg-dashboard-bg border border-panel-border rounded text-sm text-text-main focus:outline-none focus:border-primary-blue"
+                    >
+                      <option value="name">Sortuj: Nazwa A-Z</option>
+                      <option value="zone">Sortuj: Strefa</option>
+                      <option value="point">Sortuj: Punkt Strat.</option>
+                      <option value="time">Sortuj: Czas Rozpoczęcia</option>
+                    </select>
+                    <button onClick={fetchTabData} className="text-xs text-primary-blue hover:underline">
+                      🔄 Odśwież
+                    </button>
+                  </div>
+                </div>
+
+                <p className="text-xs text-text-muted">
+                  Podgląd na żywo kto pracuje i gdzie. Możesz przymusowo zmienić przydział strefy lub punktu strategicznego.
+                </p>
+
+                {activeShifts.length === 0 ? (
+                  <p className="text-sm text-text-muted text-center py-8">
+                    Brak wolontariuszy aktualnie na aktywnej zmianie.
+                  </p>
+                ) : (() => {
+                  const filtered = activeShifts.filter((s) =>
+                    s.username?.toLowerCase().includes(shiftFilter.toLowerCase())
+                  );
+                  const sorted = [...filtered].sort((a, b) => {
+                    if (shiftSort === "name") return (a.username || "").localeCompare(b.username || "");
+                    if (shiftSort === "zone") return (a.zoneName || "zzz").localeCompare(b.zoneName || "zzz");
+                    if (shiftSort === "point") return (a.strategicPointName || "zzz").localeCompare(b.strategicPointName || "zzz");
+                    if (shiftSort === "time") return new Date(a.startTime).getTime() - new Date(b.startTime).getTime();
+                    return 0;
+                  });
+
+                  return (
                     <div className="overflow-x-auto">
                       <table className="w-full text-left border-collapse">
                         <thead>
                           <tr className="border-b border-panel-border text-text-muted text-xs font-semibold uppercase">
                             <th className="pb-3">Wolontariusz</th>
-                            <th className="pb-3">Aktualny Przydział</th>
+                            <th className="pb-3">Strefa</th>
+                            <th className="pb-3">Punkt Strategiczny</th>
+                            <th className="pb-3">Czas Rozpoczęcia</th>
                             <th className="pb-3">Zmień Przydział</th>
                           </tr>
                         </thead>
                         <tbody className="text-sm text-text-main divide-y divide-panel-border/30">
-                          {activeShifts.map((shift) => (
+                          {sorted.map((shift) => (
                             <tr key={shift.id} className="hover:bg-panel-bg/40">
                               <td className="py-3 font-semibold">{shift.username}</td>
                               <td className="py-3">
                                 {shift.zoneId ? (
                                   <span className="text-xs bg-blue-500/10 text-blue-400 px-2 py-1 rounded border border-blue-500/30">
-                                    📍 Strefa: {shift.zoneName}
-                                  </span>
-                                ) : shift.strategicPointId ? (
-                                  <span className="text-xs bg-amber-500/10 text-amber-400 px-2 py-1 rounded border border-amber-500/30">
-                                    🗺️ Punkt: {shift.strategicPointName}
+                                    📍 {shift.zoneName}
                                   </span>
                                 ) : (
-                                  <span className="text-xs text-text-muted">Cały teren / Brak strefy</span>
+                                  <span className="text-xs text-text-muted">—</span>
                                 )}
+                              </td>
+                              <td className="py-3">
+                                {shift.strategicPointId ? (
+                                  <span className="text-xs bg-amber-500/10 text-amber-400 px-2 py-1 rounded border border-amber-500/30">
+                                    🗺️ {shift.strategicPointName}
+                                  </span>
+                                ) : (
+                                  <span className="text-xs text-text-muted">—</span>
+                                )}
+                              </td>
+                              <td className="py-3 text-xs text-text-muted">
+                                {new Date(shift.startTime).toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" })}
                               </td>
                               <td className="py-3">
                                 <select
@@ -1080,8 +1190,8 @@ export default function DashboardTabs({ eventId, token, onRefreshStats, activeEv
                                   }}
                                   className="px-2 py-1 bg-dashboard-bg border border-panel-border rounded text-xs text-text-main focus:outline-none focus:border-primary-blue cursor-pointer"
                                 >
-                                  <option value="">-- Wyczyść / Brak przydziału --</option>
-                                  <optgroup label="Strefy (Zones)">
+                                  <option value="">-- Brak przydziału --</option>
+                                  <optgroup label="Strefy">
                                     {zones.map((z) => (
                                       <option key={z.id} value={`zone:${z.id}`}>Strefa: {z.name}</option>
                                     ))}
@@ -1097,9 +1207,12 @@ export default function DashboardTabs({ eventId, token, onRefreshStats, activeEv
                           ))}
                         </tbody>
                       </table>
+                      <p className="text-xs text-text-muted mt-3 text-right">
+                        Wyświetlono {sorted.length} z {activeShifts.length} zmian
+                      </p>
                     </div>
-                  )}
-                </div>
+                  );
+                })()}
               </div>
             )}
           </div>

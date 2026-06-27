@@ -108,6 +108,13 @@ public class StaffingService {
             }
         }
 
+        // Auto-fill: zamknij zapotrzebowanie gdy osiągnięto wymaganą liczbę zgłoszeń
+        long responseCount = staffingResponseRepository.countByStaffingRequestId(requestId);
+        if (responseCount >= req.getCountNeeded() && "OPEN".equals(req.getStatus())) {
+            req.setStatus("FILLED");
+            staffingRequestRepository.save(req);
+        }
+
         return response;
     }
 

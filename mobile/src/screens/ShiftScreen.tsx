@@ -395,60 +395,94 @@ export default function ShiftScreen() {
         )}
 
         {/* Status Panel */}
-        {!activeShiftId ? (
+        {!activeShiftId ? (() => {
           /* STAN: PRZED ROZPOCZĘCIEM PRACY */
+          // Determine if user has an assigned zone/point (from staffing reaction or forced assignment)
+          const reactedRequest = staffingRequests.find(
+            (r) => r.userReacted && r.status === "OPEN"
+          );
+          const assignedZoneId = reactedRequest?.zoneId || null;
+          const assignedZoneName = reactedRequest?.zoneName || null;
+          const assignedPointId = reactedRequest?.strategicPointId || null;
+          const assignedPointName = reactedRequest?.strategicPointName || null;
+          const hasAssignment = !!(assignedZoneId || assignedPointId);
+
+          return (
           <View style={styles.statusPanel}>
             <Text style={styles.panelTitle}>⏱️ Rozpocznij pracę</Text>
-            <Text style={styles.panelSubtitle}>
-              Wybierz strefę, w której będziesz stacjonować (opcjonalnie):
-            </Text>
 
-            {loadingZones ? (
-              <ActivityIndicator color="#3B82F6" style={{ marginVertical: 20 }} />
-            ) : (
-              <View style={styles.zoneSelectorContainer}>
-                <TouchableOpacity
-                  style={[
-                    styles.zoneOption,
-                    selectedZoneId === undefined && styles.zoneOptionSelected,
-                  ]}
-                  onPress={() => setSelectedZoneId(undefined)}
-                >
-                  <Text
-                    style={[
-                      styles.zoneOptionText,
-                      selectedZoneId === undefined && styles.zoneOptionTextSelected,
-                    ]}
-                  >
-                    Cały Teren / Brak strefy
+            {hasAssignment ? (
+              <View>
+                <Text style={styles.panelSubtitle}>
+                  Zostałeś przydzielony do:
+                </Text>
+                <View style={[styles.zoneOption, styles.zoneOptionSelected, { marginTop: 8 }]}>
+                  <Text style={[styles.zoneOptionText, styles.zoneOptionTextSelected]}>
+                    {assignedZoneId
+                      ? `📍 Strefa: ${assignedZoneName}`
+                      : `🗺️ Punkt: ${assignedPointName}`}
                   </Text>
-                </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <View>
+                <Text style={styles.panelSubtitle}>
+                  Wybierz strefę, w której będziesz stacjonować (opcjonalnie):
+                </Text>
 
-                {zones.map((zone) => (
-                  <TouchableOpacity
-                    key={zone.id}
-                    style={[
-                      styles.zoneOption,
-                      selectedZoneId === zone.id && styles.zoneOptionSelected,
-                    ]}
-                    onPress={() => setSelectedZoneId(zone.id)}
-                  >
-                    <Text
+                {loadingZones ? (
+                  <ActivityIndicator color="#3B82F6" style={{ marginVertical: 20 }} />
+                ) : (
+                  <View style={styles.zoneSelectorContainer}>
+                    <TouchableOpacity
                       style={[
-                        styles.zoneOptionText,
-                        selectedZoneId === zone.id && styles.zoneOptionTextSelected,
+                        styles.zoneOption,
+                        selectedZoneId === undefined && styles.zoneOptionSelected,
                       ]}
+                      onPress={() => setSelectedZoneId(undefined)}
                     >
-                      {zone.name}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                      <Text
+                        style={[
+                          styles.zoneOptionText,
+                          selectedZoneId === undefined && styles.zoneOptionTextSelected,
+                        ]}
+                      >
+                        Cały Teren / Brak strefy
+                      </Text>
+                    </TouchableOpacity>
+
+                    {zones.map((zone) => (
+                      <TouchableOpacity
+                        key={zone.id}
+                        style={[
+                          styles.zoneOption,
+                          selectedZoneId === zone.id && styles.zoneOptionSelected,
+                        ]}
+                        onPress={() => setSelectedZoneId(zone.id)}
+                      >
+                        <Text
+                          style={[
+                            styles.zoneOptionText,
+                            selectedZoneId === zone.id && styles.zoneOptionTextSelected,
+                          ]}
+                        >
+                          {zone.name}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
               </View>
             )}
 
             <TouchableOpacity
               style={[styles.actionButton, styles.startButton]}
-              onPress={handleStartShift}
+              onPress={() => {
+                if (hasAssignment && assignedZoneId) {
+                  setSelectedZoneId(assignedZoneId);
+                }
+                handleStartShift();
+              }}
               disabled={actionLoading}
             >
               {actionLoading ? (
@@ -458,7 +492,8 @@ export default function ShiftScreen() {
               )}
             </TouchableOpacity>
           </View>
-        ) : (
+          );
+        })() : (
           /* STAN: W TRAKCIE PRACY (CHECKED IN) */
           <View style={styles.statusPanel}>
             <View style={styles.activeHeader}>

@@ -13,4 +13,5 @@ public interface StaffingResponseRepository extends JpaRepository<StaffingRespon
     List<StaffingResponse> findByStaffingRequestId(UUID staffingRequestId);
     Optional<StaffingResponse> findByStaffingRequestIdAndUserId(UUID staffingRequestId, UUID userId);
     boolean existsByStaffingRequestIdAndUserId(UUID staffingRequestId, UUID userId);
+    long countByStaffingRequestId(UUID staffingRequestId);
 }

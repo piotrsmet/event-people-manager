@@ -4,7 +4,7 @@ import * as SecureStore from "expo-secure-store";
 // Na emulatorze Android localhost to 10.0.2.2. Na iOS/web to localhost.
 // W przypadku testów na fizycznym telefonie zmień ten adres na IP swojego komputera w sieci lokalnej (np. "http://192.168.1.100:8080/api/v1").
 export const BASE_URL = Platform.select({
-  android: "http://localhost:8080/api/v1",
+  android: "http://127.0.0.1:8080/api/v1",
   default: "http://localhost:8080/api/v1",
 });
 
