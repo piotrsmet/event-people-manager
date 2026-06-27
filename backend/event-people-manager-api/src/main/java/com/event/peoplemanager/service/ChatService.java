@@ -22,6 +22,7 @@ public class ChatService {
     private final ChatMessageRepository chatMessageRepository;
     private final EventRepository eventRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     @Transactional
     public ChatMessage saveMessage(UUID eventId, UUID senderId, ChatMessageRequest request) {
@@ -45,7 +46,42 @@ public class ChatService {
                 .content(request.content())
                 .build();
 
-        return chatMessageRepository.save(message);
+        ChatMessage savedMessage = chatMessageRepository.save(message);
+
+        // Wyzwalanie powiadomień
+        try {
+            if ("GENERAL".equals(request.channel())) {
+                notificationService.notifyAllEventMembersExcept(
+                        eventId,
+                        senderId,
+                        "Nowa wiadomość (Czat ogólny)",
+                        sender.getUsername() + ": " + (request.content().length() > 50 ? request.content().substring(0, 47) + "..." : request.content()),
+                        "CHAT"
+                );
+            } else if ("COORDINATORS".equals(request.channel())) {
+                if (recipient != null) {
+                    notificationService.createNotification(
+                            eventId,
+                            recipient,
+                            "Wiadomość od koordynatora",
+                            sender.getUsername() + ": " + (request.content().length() > 50 ? request.content().substring(0, 47) + "..." : request.content()),
+                            "CHAT"
+                    );
+                } else {
+                    notificationService.notifyAllCoordinators(
+                            eventId,
+                            "Nowa wiadomość od " + sender.getUsername(),
+                            request.content().length() > 50 ? request.content().substring(0, 47) + "..." : request.content(),
+                            "CHAT"
+                    );
+                }
+            }
+        } catch (Exception e) {
+            // Ignorujemy błędy powiadomień by nie blokować zapisu czatu
+            e.printStackTrace();
+        }
+
+        return savedMessage;
     }
 
     public List<ChatMessage> getGeneralChatHistory(UUID eventId) {

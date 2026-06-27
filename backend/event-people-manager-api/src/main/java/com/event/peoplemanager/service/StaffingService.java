@@ -24,6 +24,7 @@ public class StaffingService {
     private final UserRepository userRepository;
     private final EventMemberRepository eventMemberRepository;
     private final ShiftRepository shiftRepository;
+    private final NotificationService notificationService;
 
     @Transactional
     public StaffingRequest createStaffingRequest(UUID eventId, CreateStaffingRequest request) {
@@ -51,7 +52,22 @@ public class StaffingService {
                 .status("OPEN")
                 .build();
 
-        return staffingRequestRepository.save(req);
+        StaffingRequest savedReq = staffingRequestRepository.save(req);
+
+        // Wyślij powiadomienie
+        try {
+            String placeName = zone != null ? "strefie " + zone.getName() : "punkcie " + sp.getName();
+            String title = "Nowe zapotrzebowanie na ludzi";
+            String msg = "Potrzebne wsparcie (" + request.countNeeded() + " os.) w " + placeName + ".";
+            if (request.description() != null && !request.description().trim().isEmpty()) {
+                msg += " Opis: " + request.description();
+            }
+            notificationService.notifyAllEventMembersExcept(eventId, UUID.randomUUID(), title, msg, "STAFFING");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return savedReq;
     }
 
     public List<StaffingRequest> getStaffingRequests(UUID eventId) {

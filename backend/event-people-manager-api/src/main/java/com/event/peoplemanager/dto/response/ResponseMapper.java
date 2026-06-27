@@ -204,5 +204,18 @@ public class ResponseMapper {
                 response.getCreatedAt()
         );
     }
+
+    public NotificationResponse toNotificationResponse(Notification notif) {
+        return new NotificationResponse(
+                notif.getId(),
+                notif.getUser() != null ? notif.getUser().getId() : null,
+                notif.getEventId(),
+                notif.getTitle(),
+                notif.getMessage(),
+                notif.getType(),
+                notif.isRead(),
+                notif.getCreatedAt()
+        );
+    }
 }
 

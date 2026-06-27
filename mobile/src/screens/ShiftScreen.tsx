@@ -14,7 +14,7 @@ import {
 } from "react-native";
 import * as Location from "expo-location";
 import { useAuth } from "../context/AuthContext";
-import { api, ZoneResponse, StaffingRequestResponse, ShiftResponse } from "../services/api";
+import { api, ZoneResponse, StaffingRequestResponse, ShiftResponse, NotificationResponse } from "../services/api";
 import MapScreen from "./MapScreen";
 import ChatScreen from "./ChatScreen";
 
@@ -70,6 +70,11 @@ export default function ShiftScreen() {
   const [loadingStaffing, setLoadingStaffing] = useState(false);
   const [reactLoading, setReactLoading] = useState<string | null>(null);
 
+  // Powiadomienia
+  const [notifications, setNotifications] = useState<NotificationResponse[]>([]);
+  const [notificationsModalVisible, setNotificationsModalVisible] = useState(false);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
+
   // Referencje do cykli
   const locationIntervalRef = useRef<any>(null);
   const timerIntervalRef = useRef<any>(null);
@@ -95,12 +100,13 @@ export default function ShiftScreen() {
     }
   };
 
-  // Ładowanie ról, zapotrzebowań i statusu aktywnej zmiany co 5 sekund
+  // Ładowanie ról, zapotrzebowań, statusu aktywnej zmiany oraz powiadomień co 5 sekund
   useEffect(() => {
     if (!selectedEvent || !user) {
       setMyMemberDetails(null);
       setStaffingRequests([]);
       setActiveShift(null);
+      setNotifications([]);
       return;
     }
 
@@ -117,6 +123,13 @@ export default function ShiftScreen() {
         setStaffingRequests(reqs.filter((r) => r.status === "OPEN"));
       } catch (err) {
         console.warn("Nie udało się pobrać zapotrzebowań:", err);
+      }
+
+      try {
+        const notifs = await api.getMyNotifications(selectedEvent.id);
+        setNotifications(notifs);
+      } catch (err) {
+        console.warn("Nie udało się pobrać powiadomień:", err);
       }
 
       if (activeShiftId) {
@@ -343,6 +356,33 @@ export default function ShiftScreen() {
     }
   };
 
+  const unreadNotificationsCount = notifications.filter((n) => !n.read).length;
+
+  const handleMarkAsRead = async (notificationId: string) => {
+    if (!selectedEvent) return;
+    try {
+      await api.markNotificationAsRead(selectedEvent.id, notificationId);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n))
+      );
+    } catch (err) {
+      console.warn("Błąd oznaczania powiadomienia jako przeczytane:", err);
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    if (!selectedEvent) return;
+    try {
+      const unread = notifications.filter((n) => !n.read);
+      await Promise.all(
+        unread.map((n) => api.markNotificationAsRead(selectedEvent!.id, n.id))
+      );
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    } catch (err) {
+      console.warn("Błąd oznaczania wszystkich jako przeczytane:", err);
+    }
+  };
+
   const getActiveAssignmentName = () => {
     if (activeShift) {
       if (activeShift.zoneId) {
@@ -374,14 +414,30 @@ export default function ShiftScreen() {
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         {/* Top Navbar */}
         <View style={styles.header}>
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={styles.username}>{user?.username}</Text>
             <Text style={styles.roleText}>Rola: {user?.role}</Text>
           </View>
-          <View style={styles.eventLabelCapsule}>
-            <Text style={styles.eventLabelCapsuleText} numberOfLines={1}>
-              📍 {selectedEvent?.name}
-            </Text>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <TouchableOpacity
+              style={styles.bellButton}
+              onPress={() => setNotificationsModalVisible(true)}
+            >
+              <Text style={styles.bellIcon}>🔔</Text>
+              {unreadNotificationsCount > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>
+                    {unreadNotificationsCount > 99 ? "99+" : unreadNotificationsCount}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+
+            <View style={[styles.eventLabelCapsule, { marginLeft: 10 }]}>
+              <Text style={styles.eventLabelCapsuleText} numberOfLines={1}>
+                📍 {selectedEvent?.name}
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -830,6 +886,77 @@ export default function ShiftScreen() {
                 )}
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* NOTIFICATIONS MODAL */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={notificationsModalVisible}
+        onRequestClose={() => setNotificationsModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxHeight: "80%", width: "90%" }]}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 15 }}>
+              <Text style={styles.modalTitle}>🔔 Powiadomienia</Text>
+              {unreadNotificationsCount > 0 && (
+                <TouchableOpacity onPress={handleMarkAllAsRead}>
+                  <Text style={{ color: "#3B82F6", fontSize: 13, fontWeight: "600" }}>Odczytaj wszystkie</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {notifications.length === 0 ? (
+              <View style={{ paddingVertical: 30, alignItems: "center" }}>
+                <Text style={{ color: "#94A3B8", fontSize: 14, fontStyle: "italic", textAlign: "center", marginVertical: 20 }}>
+                  Brak powiadomień.
+                </Text>
+              </View>
+            ) : (
+              <ScrollView style={{ flex: 1, marginBottom: 15 }}>
+                {notifications.map((item) => (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={[
+                      {
+                        padding: 12,
+                        borderRadius: 8,
+                        marginBottom: 10,
+                        borderWidth: 1,
+                        borderColor: "#334155",
+                      },
+                      item.read ? { backgroundColor: "#1E293B" } : { backgroundColor: "rgba(59, 130, 246, 0.15)", borderColor: "#3B82F6" }
+                    ]}
+                    onPress={() => handleMarkAsRead(item.id)}
+                  >
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                      <Text style={{ color: "#F8FAFC", fontWeight: "700", fontSize: 14, flex: 1 }}>
+                        {item.type === "CHAT" ? "💬 " : item.type === "ASSIGNMENT" ? "👷 " : item.type === "STAFFING" ? "📦 " : item.type === "SOS" ? "🚨 " : "🔔 "}
+                        {item.title}
+                      </Text>
+                      {!item.read && (
+                        <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#3B82F6" }} />
+                      )}
+                    </View>
+                    <Text style={{ color: "#94A3B8", fontSize: 13, marginTop: 5 }}>
+                      {item.message}
+                    </Text>
+                    <Text style={{ color: "#475569", fontSize: 11, marginTop: 6, alignSelf: "flex-end" }}>
+                      {new Date(item.createdAt).toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" })}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
+
+            <TouchableOpacity
+              style={[styles.modalBtn, styles.modalBtnCancel, { width: "100%", marginTop: 0 }]}
+              onPress={() => setNotificationsModalVisible(false)}
+            >
+              <Text style={styles.modalBtnCancelText}>ZAMKNIJ</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -1737,5 +1864,33 @@ const styles = StyleSheet.create({
     color: "#FCA5A5",
     fontSize: 12,
     fontWeight: "600",
+  },
+  bellButton: {
+    padding: 6,
+    position: "relative",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  bellIcon: {
+    fontSize: 22,
+  },
+  badge: {
+    position: "absolute",
+    right: -2,
+    top: -2,
+    backgroundColor: "#EF4444",
+    borderRadius: 9,
+    minWidth: 16,
+    height: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 2,
+    borderWidth: 1,
+    borderColor: "#0F172A",
+  },
+  badgeText: {
+    color: "#FFFFFF",
+    fontSize: 9,
+    fontWeight: "800",
   },
 });

@@ -33,6 +33,7 @@ public class IncidentService {
     private final EventRepository eventRepository;
     private final ResponseMapper responseMapper;
     private final SimpMessagingTemplate messagingTemplate;
+    private final NotificationService notificationService;
 
     @Transactional
     public Incident reportIncident(IncidentRequest request) {
@@ -61,6 +62,22 @@ public class IncidentService {
 
         incident = incidentRepository.save(incident);
         messagingTemplate.convertAndSend("/topic/incidents", responseMapper.toIncidentResponse(incident));
+
+        // Wyślij powiadomienie do koordynatorów
+        try {
+            String title = "ALARM SOS - " + request.type();
+            String msg = "Zgłosił: " + reporter.getUsername();
+            if (zone != null) {
+                msg += " w strefie " + zone.getName();
+            }
+            if (request.description() != null && !request.description().trim().isEmpty()) {
+                msg += ". Opis: " + request.description();
+            }
+            notificationService.notifyAllCoordinators(request.eventId(), title, msg, "SOS");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
         return incident;
     }
 

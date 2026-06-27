@@ -31,6 +31,7 @@ public class ShiftService {
     private final EventRepository eventRepository;
     private final ZoneRepository zoneRepository;
     private final StrategicPointRepository strategicPointRepository;
+    private final NotificationService notificationService;
 
     @Transactional
     public Shift checkIn(UUID userId, UUID eventId, UUID zoneId) {
@@ -104,21 +105,39 @@ public class ShiftService {
             throw new IllegalArgumentException("Shift does not belong to this event");
         }
 
+        String notifMsg = "";
         if (zoneId != null) {
             Zone zone = zoneRepository.findById(zoneId)
                     .orElseThrow(() -> new ResourceNotFoundException("Zone not found: " + zoneId));
             shift.setZone(zone);
             shift.setStrategicPoint(null); // Clear point when zone is set
+            notifMsg = "Koordynator przydzielił Cię do strefy: " + zone.getName();
         } else if (strategicPointId != null) {
             StrategicPoint sp = strategicPointRepository.findById(strategicPointId)
                     .orElseThrow(() -> new ResourceNotFoundException("Strategic point not found: " + strategicPointId));
             shift.setStrategicPoint(sp);
             shift.setZone(null); // Clear zone when point is set
+            notifMsg = "Koordynator przydzielił Cię do punktu strategicznego: " + sp.getName();
         } else {
             shift.setZone(null);
             shift.setStrategicPoint(null);
+            notifMsg = "Koordynator wyczyścił Twój przydział strefowy.";
         }
 
-        return shiftRepository.save(shift);
+        Shift savedShift = shiftRepository.save(shift);
+
+        try {
+            notificationService.createNotification(
+                    eventId,
+                    savedShift.getUser(),
+                    "Zmiana przydziału strefy",
+                    notifMsg,
+                    "ASSIGNMENT"
+            );
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return savedShift;
     }
 }
